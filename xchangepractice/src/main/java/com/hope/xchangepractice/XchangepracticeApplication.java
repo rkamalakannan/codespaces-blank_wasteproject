@@ -8,6 +8,11 @@ public class XchangepracticeApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(XchangepracticeApplication.class, args);
+		run();
+	}
+
+	private static void run() {
+		
 	}
 
 }

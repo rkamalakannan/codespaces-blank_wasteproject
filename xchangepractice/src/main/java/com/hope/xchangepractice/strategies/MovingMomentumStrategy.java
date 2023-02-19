@@ -1,4 +1,4 @@
-package com.hope.xchangepractice;
+package com.hope.xchangepractice.strategies;
 
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BarSeriesManager;
@@ -15,6 +15,8 @@ import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
+
+import com.hope.xchangepractice.TickerLoader;
 
 /**
  * Moving momentum strategy.

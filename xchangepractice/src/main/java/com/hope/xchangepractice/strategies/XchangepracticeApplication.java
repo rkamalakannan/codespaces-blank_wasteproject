@@ -1,4 +1,4 @@
-package com.hope.xchangepractice;
+package com.hope.xchangepractice.strategies;
 
 import java.io.IOException;
 import java.sql.Date;

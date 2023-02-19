@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-GloabalExtreama<xchangepractice>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.hope.xchangepractice.GloabalExtreama",
+            "projectName": "xchangepractice",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

@@ -1,5 +1,4 @@
-
-package com.hope.xchangepractice;
+package com.hope.xchangepractice.strategies;
 
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BarSeriesManager;
@@ -17,12 +16,12 @@ import org.ta4j.core.indicators.helpers.TransformIndicator;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
-import ta4jexamples.loaders.CsvTradesLoader;
+import com.hope.xchangepractice.TickerLoader;
 
 /**
  * Strategies which compares current price to global extrema over a week.
  */
-public class GloabalExtreama {
+public class GlobalExtreamaStrategy {
 
     // We assume that there were at least one position every 5 minutes during the
     // whole
@@ -61,10 +60,7 @@ public class GloabalExtreama {
     public static void main(String[] args) {
 
         // Getting the bar series
-        BarSeries series = TickerLoader.createBarSeries
-        ;
-();
-
+        BarSeries series = TickerLoader.createBarSeries();
         // Building the trading strategy
         Strategy strategy = buildStrategy(series);
 

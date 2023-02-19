@@ -2,6 +2,62 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Launch IndicatortoChart",
+            "request": "launch",
+            "mainClass": "com.graph.IndicatortoChart",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
+            "name": "Launch BackTracking",
+            "request": "launch",
+            "mainClass": "com.backtrack.BackTracking",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
+            "name": "Launch MovingMomentumStrategy",
+            "request": "launch",
+            "mainClass": "com.hope.xchangepractice.strategies.MovingMomentumStrategy",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
+            "name": "Launch ADXStrategy",
+            "request": "launch",
+            "mainClass": "com.hope.xchangepractice.strategies.ADXStrategy",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
+            "name": "Launch GlobalExtreamaStrategy",
+            "request": "launch",
+            "mainClass": "com.hope.xchangepractice.strategies.GlobalExtreamaStrategy",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
+            "name": "Launch XchangepracticeApplication",
+            "request": "launch",
+            "mainClass": "com.hope.xchangepractice.strategies.XchangepracticeApplication",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
+            "name": "Launch RSI2Strategy",
+            "request": "launch",
+            "mainClass": "com.hope.xchangepractice.strategies.RSI2Strategy",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
+            "name": "Launch CCICorrectionStrategy",
+            "request": "launch",
+            "mainClass": "com.hope.xchangepractice.strategies.CCICorrectionStrategy",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
             "name": "Spring Boot-GloabalExtreama<xchangepractice>",
             "request": "launch",
             "cwd": "${workspaceFolder}",

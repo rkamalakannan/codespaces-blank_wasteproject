@@ -1,12 +1,9 @@
 package com.hope.xchangepractice.strategies;
 
 import org.ta4j.core.BarSeries;
-import org.ta4j.core.BarSeriesManager;
 import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Rule;
 import org.ta4j.core.Strategy;
-import org.ta4j.core.TradingRecord;
-import org.ta4j.core.criteria.pnl.GrossReturnCriterion;
 import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.adx.ADXIndicator;
 import org.ta4j.core.indicators.adx.MinusDIIndicator;
@@ -16,8 +13,6 @@ import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
-
-import com.hope.xchangepractice.TickerLoader;
 
 
 /**
@@ -57,23 +52,5 @@ public class ADXStrategy {
         final Rule exitRule = adxOver20Rule.and(plusDICrossedDownMinusDI).and(closePriceUnderSma);
 
         return new BaseStrategy("ADX", entryRule, exitRule, adxBarCount);
-    }
-
-    public static void main(String[] args) {
-
-        // Getting the bar series
-        BarSeries series = TickerLoader.createBarSeries();
-
-        // Building the trading strategy
-        Strategy strategy = buildStrategy(series);
-
-        // Running the strategy
-        BarSeriesManager seriesManager = new BarSeriesManager(series);
-        TradingRecord tradingRecord = seriesManager.run(strategy);
-        System.out.println("Number of positions for the strategy: " + tradingRecord.getPositionCount());
-
-        // Analysis
-        System.out.println(
-                "Total return for the strategy: " + new GrossReturnCriterion().calculate(series, tradingRecord));
     }
 }

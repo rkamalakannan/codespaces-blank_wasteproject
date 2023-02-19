@@ -1,53 +1,19 @@
 package com.hope.xchangepractice.strategies;
 
 import java.io.IOException;
-import java.sql.Date;
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.concurrent.TimeUnit;
-
-import org.knowm.xchange.Exchange;
-import org.knowm.xchange.ExchangeFactory;
-import org.knowm.xchange.ExchangeSpecification;
-import org.knowm.xchange.currency.Currency;
-import org.knowm.xchange.currency.CurrencyPair;
-import org.knowm.xchange.dto.marketdata.CandleStickData;
-import org.knowm.xchange.dto.marketdata.Ticker;
-import org.knowm.xchange.kraken.Kraken;
-import org.knowm.xchange.kraken.KrakenExchange;
-import org.knowm.xchange.kraken.KrakenUtils;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenAssetPairs;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenAssets;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLC;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
-import org.knowm.xchange.kraken.service.KrakenMarketDataService;
-import org.knowm.xchange.service.marketdata.params.Params;
-import org.knowm.xchange.service.trade.params.CandleStickDataParams;
-import org.knowm.xchange.service.trade.params.DefaultCandleStickParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.DisposableBean;
-import org.springframework.web.servlet.mvc.condition.ParamsRequestCondition;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BarSeriesManager;
-import org.ta4j.core.BaseBar;
-import org.ta4j.core.BaseBarSeriesBuilder;
 import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.Rule;
 import org.ta4j.core.Strategy;
 import org.ta4j.core.TradingRecord;
+import org.ta4j.core.criteria.pnl.GrossReturnCriterion;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.num.DoubleNum;
 import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
@@ -56,21 +22,14 @@ import org.ta4j.core.rules.StopGainRule;
 import org.ta4j.core.rules.StopLossRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
-import info.bitrich.xchangestream.core.StreamingExchange;
-import info.bitrich.xchangestream.core.StreamingExchangeFactory;
-import info.bitrich.xchangestream.core.StreamingMarketDataService;
-import info.bitrich.xchangestream.kraken.KrakenStreamingExchange;
-import info.bitrich.xchangestream.kraken.KrakenStreamingMarketDataService;
-import io.reactivex.disposables.Disposable;
+import com.hope.xchangepractice.TickerLoader;
 
 public class XchangepracticeApplication {
 
   private static final Logger LOG = LoggerFactory.getLogger(XchangepracticeApplication.class);
-  static BarSeries series = new BaseBarSeriesBuilder().withNumTypeOf(DoubleNum::valueOf).withMaxBarCount(100).build(); // explicit
-
   public static void main(String[] args) throws InterruptedException, IOException, ParseException {
 
-    createBarSeries();
+    BarSeries series = TickerLoader.createBarSeries();
 
     strategy(series);
 
@@ -120,33 +79,9 @@ public class XchangepracticeApplication {
     System.out.println("Number of trades for our strategy: " +
         tradingRecord.getPositionCount());
 
-  }
+        System.out.println(
+          "Total return for the strategy: " + new GrossReturnCriterion().calculate(series, tradingRecord));
 
-  public static BarSeries createBarSeries() {
-    try {
-      Exchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
-      KrakenMarketDataService marketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
-      LocalDateTime time = LocalDateTime.now().minusHours(8);
-      ZoneId zoneId = ZoneId.systemDefault();
-      long epoch = time.atZone(zoneId).toEpochSecond();
-      KrakenOHLCs krakenOHLCs = marketDataService.getKrakenOHLC(new CurrencyPair("ATOM", "USD"), 30, epoch);
-      for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
-        BaseBar bar = new BaseBar(
-            Duration.ofMinutes(30),
-            ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()),
-                ZoneId.systemDefault()),
-            krakenOHLC.getOpen().doubleValue(),
-            krakenOHLC.getHigh().doubleValue(),
-            krakenOHLC.getLow().doubleValue(),
-            krakenOHLC.getClose().doubleValue(),
-            krakenOHLC.getVolume().doubleValue());
-        series.addBar(bar);
-
-      }
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-    return series;
   }
 
   public static Strategy buildStrategy(BarSeries series) {

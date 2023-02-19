@@ -23,17 +23,17 @@ public class TickerLoader {
 
     public static BarSeries createBarSeries() {
     
-        BarSeries series = new BaseBarSeriesBuilder().withNumTypeOf(DoubleNum::valueOf).withMaxBarCount(100).build();
+        BarSeries series = new BaseBarSeriesBuilder().withNumTypeOf(DoubleNum::valueOf).withMaxBarCount(Integer.MAX_VALUE).build();
         try {
             Exchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
             KrakenMarketDataService marketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
-            LocalDateTime time = LocalDateTime.now().minusHours(8);
+            LocalDateTime time = LocalDateTime.now().minusWeeks(1);
             ZoneId zoneId = ZoneId.systemDefault();
             long epoch = time.atZone(zoneId).toEpochSecond();
-            KrakenOHLCs krakenOHLCs = marketDataService.getKrakenOHLC(new CurrencyPair("ATOM", "USD"), 30, epoch);
+            KrakenOHLCs krakenOHLCs = marketDataService.getKrakenOHLC(new CurrencyPair("BCH", "USD"), 15, epoch);
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
                 BaseBar bar = new BaseBar(
-                        Duration.ofMinutes(30),
+                        Duration.ofMinutes(15),
                         ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()),
                                 ZoneId.systemDefault()),
                         krakenOHLC.getOpen().doubleValue(),

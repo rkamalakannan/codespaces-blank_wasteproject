@@ -65,6 +65,14 @@
 			<artifactId>xchange-kraken</artifactId>
 			<version>5.1.0</version>
 		</dependency>
+
+		<!-- https://mvnrepository.com/artifact/org.knowm.xchange/xchange-stream-kraken -->
+		<dependency>
+			<groupId>org.knowm.xchange</groupId>
+			<artifactId>xchange-stream-kraken</artifactId>
+			<version>5.1.0</version>
+		</dependency>
+
 		<!-- https://mvnrepository.com/artifact/org.knowm.xchange/xchange-stream-binance -->
 		<dependency>
 			<groupId>org.knowm.xchange</groupId>
@@ -73,16 +81,28 @@
 		</dependency>
 
 		<dependency>
-            <groupId>org.knowm.xchange</groupId>
-            <artifactId>xchange-huobi</artifactId>
-            <version>5.1.0</version>
-        </dependency>
+			<groupId>org.knowm.xchange</groupId>
+			<artifactId>xchange-huobi</artifactId>
+			<version>5.1.0</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.knowm.xchange</groupId>
 			<artifactId>xchange-stream-bitstamp</artifactId>
 			<version>5.1.0</version>
-		  </dependency>
+		</dependency>
+
+		<dependency>
+			<groupId>org.ta4j</groupId>
+			<artifactId>ta4j-core</artifactId>
+			<version>0.15</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.ta4j</groupId>
+			<artifactId>ta4j-core</artifactId>
+			<version>0.15</version>
+		</dependency>
 
 
 	</dependencies>

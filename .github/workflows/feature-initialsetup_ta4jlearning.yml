@@ -9,6 +9,10 @@ on:
       - feature/initialsetup
   workflow_dispatch:
 
+defaults:
+  run:
+    working-directory: /workspaces/codespaces-blank_wasteproject/xchangepractice
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,9 +24,6 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: '17'
-          
-      - name: change path
-        run: cd xchangepractice
 
       - name: Build with Maven
         run: mvn clean install

@@ -23,12 +23,15 @@ jobs:
 
       - name: Build with Maven
         run: mvn clean install
+      
+      - name: change path
+        run: cd xchangepractice
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v2
         with:
           name: java-app
-          path: '${{ github.workspace }}/xchangepractice/target/*.jar'
+          path: '${{ github.workspace }}/target/*.jar'
 
   deploy:
     runs-on: ubuntu-latest

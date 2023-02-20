@@ -81,6 +81,7 @@ public class TradingBotOnMovingBarSeries {
                 System.out.println("------------------------------------------------------\n" + "Bar " + i
                         + " added, close price = " + newBar.getClosePrice().doubleValue());
                 series.addBar(liveSeries.getFirstBar());
+                SubmitClient.sendOrder();
 
                 int endIndex = series.getEndIndex();
                 if (strategy.shouldEnter(endIndex)) {

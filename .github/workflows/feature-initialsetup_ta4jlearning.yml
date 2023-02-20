@@ -22,7 +22,7 @@ jobs:
           java-version: '17'
 
       - name: Build with Maven
-        run: 
+        run: |
           cd xchangepractice
           mvn clean install
 

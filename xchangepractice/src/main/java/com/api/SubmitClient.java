@@ -15,23 +15,8 @@ public class SubmitClient {
 
 
     private static final String apiPath = "https://demo-futures.kraken.com/derivatives";
-    private static final String apiPublicKey = "GQgye1pDbiUEQN6nvDliHScfzVaHz0TWiq6J7K87gUJb4qZoo8mYrEJF"; // accessible
-                                                                                                           // on your
-                                                                                                           // Account
-                                                                                                           // page under
-                                                                                                           // Settings
-                                                                                                           // -> API
-    // Keys
-    private static final String apiPrivateKey = "M7jcR99c+y5eZXRlMWf+WRP0TIwKX0EC4ItpZ0xiIGDdXcNGlEV3O8KHmNVSh/Q6hxQ1yngCp/NpesubyjE0eAF/"; // accessible
-                                                                                                                                            // on
-                                                                                                                                            // your
-                                                                                                                                            // Account
-                                                                                                                                            // page
-                                                                                                                                            // under
-                                                                                                                                            // Settings
-                                                                                                                                            // ->
-                                                                                                                                            // API
-                                                                                                                                            // Keys
+    private static final String apiPublicKey = "GQgye1pDbiUEQN6nvDliHScfzVaHz0TWiq6J7K87gUJb4qZoo8mYrEJF";     
+    private static final String apiPrivateKey = "M7jcR99c+y5eZXRlMWf+WRP0TIwKX0EC4ItpZ0xiIGDdXcNGlEV3O8KHmNVSh/Q6hxQ1yngCp/NpesubyjE0eAF/";
     private static final int timeout = 10;
     private static final boolean checkCertificate = true;
 
@@ -48,9 +33,5 @@ public class SubmitClient {
             System.out.println("sendOrder (limit):\n" + result);
 
     }
-
-
-
-
 
 }

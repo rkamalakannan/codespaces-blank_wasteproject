@@ -8,6 +8,8 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
@@ -31,6 +33,7 @@ import com.hope.xchangepractice.strategies.MovingMomentumStrategy;
  * This class is an example of a dummy trading bot using ta4j.
  * <p/>
  */
+@SpringBootApplication 
 public class TradingBotOnMovingBarSeries {
 
     /**
@@ -56,6 +59,9 @@ public class TradingBotOnMovingBarSeries {
 
     public static void main(String[] args) throws InterruptedException, IOException, KeyManagementException,
             InvalidKeyException, NoSuchAlgorithmException {
+
+        SpringApplication.run(TradingBotOnMovingBarSeries.class, args);
+
 
         while (true) {
             System.out.println("********************** Initialization **********************");

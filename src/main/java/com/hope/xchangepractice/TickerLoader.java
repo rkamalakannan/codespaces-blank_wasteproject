@@ -31,7 +31,6 @@ public class TickerLoader {
         BarSeries series = new BaseBarSeriesBuilder()
                 .withMaxBarCount(Integer.MAX_VALUE).build();
         try {
-            System.setProperty("javax.net.ssl.trustStore", "/codespaces-blank_wasteproject/src/main/java/com/certs/jssecacerts");
             KrakenMarketDataService marketDataService = marketData();
             LocalDateTime time = LocalDateTime.now().minusWeeks(1);
             ZoneId zoneId = ZoneId.systemDefault();

@@ -9,8 +9,6 @@ COPY pom.xml ./
 # Copy local code to the container image.
 COPY src ./src
 
-COPY src/main/java/com/cerrts/jssecacerts ./src
-
 # Download dependencies and build a release artifact.
 RUN mvn package -DskipTests
 
@@ -22,7 +20,12 @@ FROM openjdk:17-alpine
 # Copy the jar to the production image from the builder stage.
 COPY --from=build-env /app/target/xchangepractice-*.jar /XchangePractice.jar
 
+COPY src/main/java/com/cerrts/jssecacerts /opt/openjdk-17/jre/lib/security/
+COPY src/main/java/com/cerrts/jssecacerts /opt/openjdk-17/lib/security/
+
+
+
 EXPOSE  8080
 
 # Run the web service on container startup.
-CMD ["java", "-Djavax.net.ssl.trustStore=jssecacerts","-jar", "/XchangePractice.jar"]
+CMD ["java","-jar", "/XchangePractice.jar"]

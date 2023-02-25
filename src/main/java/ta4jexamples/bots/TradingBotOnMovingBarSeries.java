@@ -58,7 +58,7 @@ public class TradingBotOnMovingBarSeries {
      * @return a moving bar series
      */
     private static BarSeries initMovingBarSeries(int maxBarCount) throws IOException {
-        BarSeries series = TickerLoader.liveMarketData();
+        BarSeries series = TickerLoader.createBarSeries();
         System.out.print("Initial bar count: " + series.getBarCount());
         // Limitating the number of bars to maxBarCount
         series.setMaximumBarCount(maxBarCount);

@@ -47,6 +47,7 @@ public class TradingBotOnMovingBarSeries {
             InvalidKeyException, NoSuchAlgorithmException {
 
         SpringApplication.run(TradingBotOnMovingBarSeries.class, args);
+        initateRun();
     }
 
 
@@ -67,8 +68,7 @@ public class TradingBotOnMovingBarSeries {
     }
     
     
-    @EventListener(ApplicationReadyEvent.class)
-    public void initateRun() throws InterruptedException, IOException, KeyManagementException,
+    public static void initateRun() throws InterruptedException, IOException, KeyManagementException,
     InvalidKeyException, NoSuchAlgorithmException {
         
 

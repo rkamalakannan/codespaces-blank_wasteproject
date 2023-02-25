@@ -20,5 +20,7 @@ FROM openjdk:17-alpine
 # Copy the jar to the production image from the builder stage.
 COPY --from=build-env /app/target/xchangepractice-*.jar /XchangePractice.jar
 
+EXPOSE  8080
+
 # Run the web service on container startup.
 CMD ["java", "-jar", "/XchangePractice.jar"]

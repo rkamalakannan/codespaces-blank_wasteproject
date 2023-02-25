@@ -10,6 +10,8 @@ import java.security.NoSuchAlgorithmException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
@@ -33,7 +35,7 @@ import com.hope.xchangepractice.strategies.MovingMomentumStrategy;
  * This class is an example of a dummy trading bot using ta4j.
  * <p/>
  */
-@SpringBootApplication 
+@SpringBootApplication
 public class TradingBotOnMovingBarSeries {
 
     /**
@@ -41,7 +43,14 @@ public class TradingBotOnMovingBarSeries {
      */
     private static Num LAST_BAR_CLOSE_PRICE;
 
-    /**
+    public static void main(String[] args) throws InterruptedException, IOException, KeyManagementException,
+            InvalidKeyException, NoSuchAlgorithmException {
+
+        SpringApplication.run(TradingBotOnMovingBarSeries.class, args);
+    }
+
+
+     /**
      * Builds a moving bar series (i.e. keeping only the maxBarCount last bars)
      *
      * @param maxBarCount the number of bars to keep in the bar series (at maximum)
@@ -56,12 +65,12 @@ public class TradingBotOnMovingBarSeries {
         System.out.println(" (limited to " + maxBarCount + "), close price = " + LAST_BAR_CLOSE_PRICE);
         return series;
     }
-
-    public static void main(String[] args) throws InterruptedException, IOException, KeyManagementException,
-            InvalidKeyException, NoSuchAlgorithmException {
-
-        SpringApplication.run(TradingBotOnMovingBarSeries.class, args);
-
+    
+    
+    @EventListener(ApplicationReadyEvent.class)
+    public void initateRun() throws InterruptedException, IOException, KeyManagementException,
+    InvalidKeyException, NoSuchAlgorithmException {
+        
 
         while (true) {
             System.out.println("********************** Initialization **********************");

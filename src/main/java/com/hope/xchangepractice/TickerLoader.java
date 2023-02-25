@@ -35,7 +35,7 @@ public class TickerLoader {
             LocalDateTime time = LocalDateTime.now().minusWeeks(1);
             ZoneId zoneId = ZoneId.systemDefault();
             long epoch = time.atZone(zoneId).toEpochSecond();
-            KrakenOHLCs krakenOHLCs = marketDataService.getKrakenOHLC(new CurrencyPair("BCH", "USD"), 15, epoch);
+            KrakenOHLCs krakenOHLCs = marketDataService.getKrakenOHLC(new CurrencyPair("BTC", "USD"), 15, epoch);
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
                 BaseBar bar = new BaseBar(
                         Duration.ofMinutes(15),
@@ -58,7 +58,7 @@ public class TickerLoader {
     public static BarSeries liveMarketData() throws IOException {
         BarSeries liveSeries = new BaseBarSeriesBuilder().build();
         KrakenMarketDataService marketDataService = marketData();
-        Ticker ticker = marketDataService.getTicker(CurrencyPair.BCH_USD);
+        Ticker ticker = marketDataService.getTicker(CurrencyPair.BTC_USD);
 
         BaseBar baseBar =  new BaseBar(Duration.ofSeconds(1), ZonedDateTime.now(), ticker.getOpen(), ticker.getHigh(),
                 ticker.getLow(), ticker.getLast(),

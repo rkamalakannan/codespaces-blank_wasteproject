@@ -3,7 +3,7 @@ VOLUME /tmp
 ARG JAVA_OPTS
 ENV JAVA_OPTS=$JAVA_OPTS
 RUN ./mvnw clean package
-COPY target/xchangepractice-0.0.1-SNAPSHOT.jar codespacesblankwasteproject.jar
+COPY /xchangepractice/target/xchangepractice-0.0.1-SNAPSHOT.jar codespacesblankwasteproject.jar
 EXPOSE 3000
 ENTRYPOINT exec java $JAVA_OPTS -jar codespacesblankwasteproject.jar
 # For Spring-Boot project, use the entrypoint below to reduce Tomcat startup time.

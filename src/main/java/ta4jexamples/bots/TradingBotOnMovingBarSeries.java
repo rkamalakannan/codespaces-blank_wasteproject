@@ -34,7 +34,6 @@ import com.hope.xchangepractice.strategies.MovingMomentumStrategy;
  * This class is an example of a dummy trading bot using ta4j.
  * <p/>
  */
-@SpringBootApplication
 public class TradingBotOnMovingBarSeries {
 
     /**
@@ -44,8 +43,6 @@ public class TradingBotOnMovingBarSeries {
 
     public static void main(String[] args) throws InterruptedException, IOException, KeyManagementException,
             InvalidKeyException, NoSuchAlgorithmException {
-
-        SpringApplication.run(TradingBotOnMovingBarSeries.class, args);
         initateRun();
     }
 

@@ -1,4 +1,4 @@
-package com;
+package ta4jexamples.bots;
 
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
@@ -22,5 +22,6 @@ public class Solution {
     long epoch = time.atZone(zoneId).toEpochSecond();
     Ticker krakenOHLCs = krakenExchange.getMarketDataService().getTicker(new CurrencyPair("BTC", "USD"));
 //            .getKr(new CurrencyPair("BTC", "USD"), 15, epoch);
+    System.out.println("Inside Solution");
   }
 }

@@ -28,4 +28,4 @@ COPY src/main/java/com/cerrts/jssecacerts /opt/openjdk-17/lib/security/
 EXPOSE  8080
 
 # Run the web service on container startup.
-CMD ["java","-Djavax.net.debug=ssl,handshake","-jar", "/XchangePractice.jar"]
+CMD ["java","-Djavax.net.debug=ssl,handshake","-Djdk.tls.client.protocols=TLSv1.3","-Dhttps.protocols=TLSv1.3","-jar", "/XchangePractice.jar"]

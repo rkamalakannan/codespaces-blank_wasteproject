@@ -3,11 +3,9 @@ package com.hope.xchangepractice;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-import org.eclipse.jetty.server.Server;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.currency.CurrencyPair;
@@ -16,13 +14,10 @@ import org.knowm.xchange.kraken.KrakenExchange;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLC;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
 import org.knowm.xchange.kraken.service.KrakenMarketDataService;
-import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
 import org.ta4j.core.BaseBarSeriesBuilder;
-import org.ta4j.core.num.DoubleNum;
-
-import info.bitrich.xchangestream.kraken.KrakenStreamingExchange;
+import ta4jexamples.bots.KrakenOHLCLoader;
 
 public class TickerLoader {
 
@@ -31,11 +26,7 @@ public class TickerLoader {
         BarSeries series = new BaseBarSeriesBuilder()
                 .withMaxBarCount(Integer.MAX_VALUE).build();
         try {
-            KrakenMarketDataService marketDataService = marketData();
-            LocalDateTime time = LocalDateTime.now().minusWeeks(1);
-            ZoneId zoneId = ZoneId.systemDefault();
-            long epoch = time.atZone(zoneId).toEpochSecond();
-            KrakenOHLCs krakenOHLCs = marketDataService.getKrakenOHLC(new CurrencyPair("BTC", "USD"), 15, epoch);
+            KrakenOHLCs krakenOHLCs = new KrakenOHLCLoader().getKrakenOHLCs();
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
                 BaseBar bar = new BaseBar(
                         Duration.ofMinutes(15),

@@ -11,10 +11,9 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-public class Solution {
+public class KrakenOHLCLoader {
 
-  public static void main(String[] args) throws IOException {
-
+  public KrakenOHLCs getKrakenOHLCs() throws IOException {
     KrakenExchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
     KrakenMarketDataService krakenMarketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
     LocalDateTime time = LocalDateTime.now().minusWeeks(1);
@@ -23,7 +22,9 @@ public class Solution {
     KrakenOHLCs krakenOHLCs = krakenMarketDataService.getKrakenOHLC(new CurrencyPair("BTC", "USD"), 15, epoch);
     Ticker ticker = krakenExchange.getMarketDataService().getTicker(new CurrencyPair("BTC", "USD"));
 //            .getKr(new CurrencyPair("BTC", "USD"), 15, epoch);
-    System.out.println("Inside Solution"+ ticker.toString());
-    System.out.println("Inside OHLC"+ ticker);
+    System.out.println("Inside KrakenOHLCLoader" + ticker.toString());
+    System.out.println("Inside OHLC" + ticker);
+
+    return krakenOHLCs;
   }
 }

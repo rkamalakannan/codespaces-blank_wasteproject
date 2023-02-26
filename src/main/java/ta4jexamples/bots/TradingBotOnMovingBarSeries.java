@@ -55,12 +55,11 @@ public class TradingBotOnMovingBarSeries {
     
     public static void initateRun() throws InterruptedException, IOException, KeyManagementException,
     InvalidKeyException, NoSuchAlgorithmException {
-        
+        BarSeries series = initMovingBarSeries(20);
 
         while (true) {
             System.out.println("********************** Initialization **********************");
             // Getting the bar series
-            BarSeries series = initMovingBarSeries(20);
 
             // Building the trading strategy
             Strategy strategy = MovingMomentumStrategy.buildStrategy(series);

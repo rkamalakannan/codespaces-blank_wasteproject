@@ -19,12 +19,6 @@ public class KrakenOHLCLoader {
     LocalDateTime time = LocalDateTime.now().minusWeeks(1);
     ZoneId zoneId = ZoneId.systemDefault();
     long epoch = time.atZone(zoneId).toEpochSecond();
-    KrakenOHLCs krakenOHLCs = krakenMarketDataService.getKrakenOHLC(new CurrencyPair("BTC", "USD"), 15, epoch);
-    Ticker ticker = krakenExchange.getMarketDataService().getTicker(new CurrencyPair("BTC", "USD"));
-//            .getKr(new CurrencyPair("BTC", "USD"), 15, epoch);
-    System.out.println("Inside KrakenOHLCLoader" + ticker.toString());
-    System.out.println("Inside OHLC" + ticker);
-
-    return krakenOHLCs;
+    return krakenMarketDataService.getKrakenOHLC(new CurrencyPair("BTC", "USD"), 15, epoch);
   }
 }

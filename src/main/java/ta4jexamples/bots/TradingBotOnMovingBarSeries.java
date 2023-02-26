@@ -1,31 +1,18 @@
 package ta4jexamples.bots;
 
-import java.time.Duration;
-import java.time.ZonedDateTime;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBar;
-import org.ta4j.core.BaseStrategy;
 import org.ta4j.core.BaseTradingRecord;
 import org.ta4j.core.Strategy;
 import org.ta4j.core.Trade;
 import org.ta4j.core.TradingRecord;
-import org.ta4j.core.indicators.SMAIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.OverIndicatorRule;
-import org.ta4j.core.rules.UnderIndicatorRule;
 
 import com.api.SubmitClient;
 import com.hope.xchangepractice.TickerLoader;
@@ -94,8 +81,6 @@ public class TradingBotOnMovingBarSeries {
                 System.out.println("------------------------------------------------------\n" + "Bar " + i
                         + " added, close price = " + newBar.getClosePrice().doubleValue());
                 series.addBar(liveSeries.getFirstBar());
-                SubmitClient.sendOrder();
-
                 int endIndex = series.getEndIndex();
                 if (strategy.shouldEnter(endIndex)) {
                     // Our strategy should enter
@@ -106,7 +91,7 @@ public class TradingBotOnMovingBarSeries {
                         System.out.println(
                                 "Entered on " + entry.getIndex() + " (price=" + entry.getNetPrice().doubleValue()
                                         + ", amount=" + entry.getAmount().doubleValue() + ")");
-                        SubmitClient.sendOrder();
+                        SubmitClient.buyOrder();
 
                     }
                 } else if (strategy.shouldExit(endIndex)) {
@@ -118,7 +103,7 @@ public class TradingBotOnMovingBarSeries {
                         System.out
                                 .println("Exited on " + exit.getIndex() + " (price=" + exit.getNetPrice().doubleValue()
                                         + ", amount=" + exit.getAmount().doubleValue() + ")");
-                        SubmitClient.sendOrder();
+                        SubmitClient.sellOrder();
 
                     }
                 }

@@ -29,7 +29,7 @@ public class TickerLoader {
             KrakenOHLCs krakenOHLCs = new KrakenOHLCLoader().getKrakenOHLCs();
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
                 BaseBar bar = new BaseBar(
-                        Duration.ofMinutes(15),
+                        Duration.ofSeconds(1),
                         ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()),
                                 ZoneId.systemDefault()),
                         krakenOHLC.getOpen(),

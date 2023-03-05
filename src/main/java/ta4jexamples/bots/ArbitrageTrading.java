@@ -49,27 +49,31 @@ public class ArbitrageTrading {
 
     // if kraken is higher than binance: sell kraken limit order to binance value
     public static void main(String[] args)
-            throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException {
+            throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
         Ticker binanceTicker = binanceExchangeSettings();
         String symbol = "pf_xbtusd";
-        BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);
-        BigDecimal lastPriceBinance = binanceTicker.getLast();
-        System.out.println("BINANCE: " + lastPriceBinance);
-        System.out.println("KRAKEN: " + lastPriceKrakenFuture);
-        System.out.println(lastPriceBinance.compareTo(lastPriceKrakenFuture) > 0);
 
-        if (lastPriceBinance.compareTo(lastPriceKrakenFuture) > 0) {
-            SubmitClient.buyLimitOrder(symbol, lastPriceKrakenFuture);
-            SubmitClient.sellLimitOrder(symbol, lastPriceBinance);
+            while(true) {
+                Thread.sleep(100000);
+            BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);
+            BigDecimal lastPriceBinance = binanceTicker.getLast();
+            System.out.println("BINANCE: " + lastPriceBinance);
+            System.out.println("KRAKEN: " + lastPriceKrakenFuture);
+            System.out.println(lastPriceBinance.compareTo(lastPriceKrakenFuture) > 0);
 
-        } else if (lastPriceBinance.compareTo(lastPriceKrakenFuture) < 0) {
-            SubmitClient.sellLimitOrder(symbol, lastPriceKrakenFuture);
-            SubmitClient.buyLimitOrder(symbol, lastPriceBinance);
+            if (lastPriceBinance.compareTo(lastPriceKrakenFuture) > 0) {
+                SubmitClient.buyLimitOrder(symbol, lastPriceKrakenFuture);
+                SubmitClient.sellLimitOrder(symbol, lastPriceBinance);
 
-        } else {
-            // do nothing
+            } else if (lastPriceBinance.compareTo(lastPriceKrakenFuture) < 0) {
+                SubmitClient.sellLimitOrder(symbol, lastPriceKrakenFuture);
+                SubmitClient.buyLimitOrder(symbol, lastPriceBinance);
+
+            } else {
+                // do nothing
+            }
+
         }
-
     }
 
 }

@@ -138,7 +138,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<mainClass>ta4jexamples.bots.TradingBotOnMovingBarSeries</mainClass>
+					<mainClass>ta4jexamples.bots.ArbitrageTrading</mainClass>
 
 					<excludes>
 						<exclude>

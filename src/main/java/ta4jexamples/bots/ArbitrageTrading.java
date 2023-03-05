@@ -14,6 +14,8 @@ import org.knowm.xchange.dto.marketdata.Ticker;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.KrakenExchange;
 import org.knowm.xchange.kraken.service.KrakenMarketDataService;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -48,9 +50,11 @@ public class ArbitrageTrading {
     // binace counter low:
 
     // if kraken is higher than binance: sell kraken limit order to binance value
+    @Retryable(value = Exception.class, maxAttempts = 2, backoff = @Backoff(delay = 100))
     public static void main(String[] args)
             throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
 
+        boolean reduceOnly = false;
         while (true) {
             Thread.sleep(100000);
             Ticker binanceTicker = binanceExchangeSettings();
@@ -59,14 +63,13 @@ public class ArbitrageTrading {
             BigDecimal lastPriceBinance = binanceTicker.getLast();
             System.out.println("BINANCE: " + lastPriceBinance);
             System.out.println("KRAKEN: " + lastPriceKrakenFuture);
-
             if (lastPriceBinance.compareTo(lastPriceKrakenFuture) > 0) {
-                SubmitClient.buyLimitOrder(symbol, lastPriceKrakenFuture);
-                SubmitClient.sellLimitOrder(symbol, lastPriceBinance);
+                SubmitClient.buyLimitOrder(symbol, lastPriceKrakenFuture, reduceOnly);
+                SubmitClient.sellLimitOrder(symbol, lastPriceBinance, reduceOnly);
 
             } else if (lastPriceBinance.compareTo(lastPriceKrakenFuture) < 0) {
-                SubmitClient.sellLimitOrder(symbol, lastPriceKrakenFuture);
-                SubmitClient.buyLimitOrder(symbol, lastPriceBinance);
+                SubmitClient.sellLimitOrder(symbol, lastPriceKrakenFuture,reduceOnly);
+                SubmitClient.buyLimitOrder(symbol, lastPriceBinance, reduceOnly);
 
             } else {
                 // do nothing

@@ -32,8 +32,6 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
-import org.ta4j.core.num.Num;
-
 public class FuturesApi {
 	private String apiPath;
 	private String apiPublicKey;
@@ -219,7 +217,7 @@ public class FuturesApi {
 	}
 
 	// Places an order
-	public String sendOrder(String orderType, String symbol, String side, BigDecimal size, BigDecimal limitPrice) throws KeyManagementException, InvalidKeyException, MalformedURLException,
+	public String sendOrder(String orderType, String symbol, String side, BigDecimal size, BigDecimal limitPrice, Boolean reduceOnly) throws KeyManagementException, InvalidKeyException, MalformedURLException,
 					NoSuchAlgorithmException, IOException {
 		String endpoint = "/api/v3/sendorder";
 		String postBody;
@@ -227,9 +225,14 @@ public class FuturesApi {
 			postBody = String.format("orderType=mkt&symbol=%1$s&side=%2$s&size=%3$f", symbol,
             side, size);
 		}
-		if (orderType.equals("lmt")) {
+		else if (orderType.equals("lmt")) {
 			postBody = String.format("orderType=lmt&symbol=%1s&side=%2s&size=%3$f&limitPrice=%4$f", symbol, side, size,
 					limitPrice);
+		}
+
+		else if (orderType.equals("post")) {
+			postBody = String.format("orderType=post&symbol=%1s&side=%2s&size=%3$f&limitPrice=%4$f&reduceOnly=%5$b", symbol, side, size,
+					limitPrice, reduceOnly);
 		}
         else {
             postBody = "";

@@ -69,8 +69,8 @@ public static BigDecimal findTicker(String symbol) throws KeyManagementException
     // send limit order
     String side = "buy";
     String orderType = "lmt";
-    BigDecimal size = BigDecimal.valueOf(0.1);
-    limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
+    BigDecimal size = BigDecimal.valueOf(100);
+//    limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
     int leverage = 15;
 //    Object leverageResult = methods.sendMaxLeverage(leverage, symbol);
 //    System.out.println("Levaerage sell  (limit):\n" + leverageResult);
@@ -84,8 +84,8 @@ public static BigDecimal findTicker(String symbol) throws KeyManagementException
     // send limit order
     String side = "sell";
     String orderType = "lmt";
-    BigDecimal size = BigDecimal.valueOf(0.1);
-    limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
+    BigDecimal size = BigDecimal.valueOf(100);
+//    limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
 
     int leverage = 15;
     // leverage =  leverage.stripTrailingZeros();

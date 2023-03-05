@@ -22,7 +22,6 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
 /**
- *
  * @author vscode
  */
 public class ArbitrageTrading {
@@ -30,14 +29,16 @@ public class ArbitrageTrading {
     public static Ticker binanceExchangeSettings() throws IOException {
         Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceExchange.class);
         BinanceMarketDataService marketDataService = (BinanceMarketDataService) exchange.getMarketDataService();
-        Instrument instrument = new CurrencyPair("BTC", "USDT");
+        Instrument instrument = new CurrencyPair("MATIC", "USDT");
         return marketDataService.getTicker(instrument);
     }
 
     public static Ticker krakenExchangeSettings() throws IOException {
         Exchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
         KrakenMarketDataService marketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
-        return marketDataService.getTicker(CurrencyPair.BCH_USD);
+        Instrument instrument = new CurrencyPair("MATIC", "USD");
+
+        return marketDataService.getTicker(instrument);
     }
 
     // binance counter high -
@@ -49,11 +50,11 @@ public class ArbitrageTrading {
     // if kraken is higher than binance: sell kraken limit order to binance value
     public static void main(String[] args)
             throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
-        Ticker binanceTicker = binanceExchangeSettings();
-        String symbol = "pf_xbtusd";
 
-            while(true) {
-                Thread.sleep(100000);
+        while (true) {
+            Thread.sleep(100000);
+            Ticker binanceTicker = binanceExchangeSettings();
+            String symbol = "pf_maticusd";
             BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);
             BigDecimal lastPriceBinance = binanceTicker.getLast();
             System.out.println("BINANCE: " + lastPriceBinance);

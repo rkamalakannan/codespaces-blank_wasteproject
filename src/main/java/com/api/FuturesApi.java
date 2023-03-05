@@ -139,7 +139,7 @@ public class FuturesApi {
 			connection.setRequestProperty("Authent", signature);
 		}
 
-		if (requestMethod.equals("POST")) {
+		if (requestMethod.equals("POST") || requestMethod.equals("PUT")) {
 			OutputStream wr = connection.getOutputStream();
 			wr.write(postBody.getBytes(StandardCharsets.UTF_8));
 			wr.close();
@@ -219,13 +219,17 @@ public class FuturesApi {
 	}
 
 	// Places an order
-	public String sendOrder(String orderType, String symbol, String side, BigDecimal size) throws KeyManagementException, InvalidKeyException, MalformedURLException,
+	public String sendOrder(String orderType, String symbol, String side, BigDecimal size, BigDecimal limitPrice) throws KeyManagementException, InvalidKeyException, MalformedURLException,
 					NoSuchAlgorithmException, IOException {
 		String endpoint = "/api/v3/sendorder";
 		String postBody;
 	   if(orderType.equals("mkt")) {
 			postBody = String.format("orderType=mkt&symbol=%1$s&side=%2$s&size=%3$f", symbol,
             side, size);
+		}
+		if (orderType.equals("lmt")) {
+			postBody = String.format("orderType=lmt&symbol=%1s&side=%2s&size=%3$f&limitPrice=%4$f", symbol, side, size,
+					limitPrice);
 		}
         else {
             postBody = "";
@@ -313,5 +317,13 @@ public class FuturesApi {
 		String endpoint = "/api/v3/transfers";
 		return makeRequest("GET", endpoint);
 	}
+
+	//set max leverage
+	public String sendMaxLeverage(int leverage, String symbol) throws KeyManagementException, InvalidKeyException, MalformedURLException,
+			NoSuchAlgorithmException, IOException {
+				String endpoint = "/api/v3/leveragepreferences";
+				String postBody = String.format("maxLeverage=%1d&symbol=%2s", leverage, symbol);
+				return makeRequest("PUT", endpoint, "", postBody);
+			}
 
 }

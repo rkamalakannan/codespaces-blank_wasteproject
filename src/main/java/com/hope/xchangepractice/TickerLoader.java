@@ -62,7 +62,7 @@ public class TickerLoader {
 
     }
 
-    private static KrakenMarketDataService marketData() {
+    public static KrakenMarketDataService marketData() {
         Exchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
         return (KrakenMarketDataService) krakenExchange.getMarketDataService();
     }

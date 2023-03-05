@@ -2,6 +2,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "ArbitrageTrading",
+            "request": "launch",
+            "mainClass": "ta4jexamples.bots.ArbitrageTrading",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
             "name": "Launch TradingBotOnMovingBarSeries",
             "request": "launch",
             "mainClass": "ta4jexamples.bots.TradingBotOnMovingBarSeries",

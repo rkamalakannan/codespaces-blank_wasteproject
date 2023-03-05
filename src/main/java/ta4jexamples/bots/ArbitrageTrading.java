@@ -59,7 +59,6 @@ public class ArbitrageTrading {
             BigDecimal lastPriceBinance = binanceTicker.getLast();
             System.out.println("BINANCE: " + lastPriceBinance);
             System.out.println("KRAKEN: " + lastPriceKrakenFuture);
-            System.out.println(lastPriceBinance.compareTo(lastPriceKrakenFuture) > 0);
 
             if (lastPriceBinance.compareTo(lastPriceKrakenFuture) > 0) {
                 SubmitClient.buyLimitOrder(symbol, lastPriceKrakenFuture);

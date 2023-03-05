@@ -4,12 +4,7 @@
  */
 package ta4jexamples.bots;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.security.InvalidKeyException;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-
+import com.api.SubmitClient;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.binance.BinanceExchange;
@@ -17,11 +12,14 @@ import org.knowm.xchange.binance.service.BinanceMarketDataService;
 import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.dto.marketdata.Ticker;
 import org.knowm.xchange.instrument.Instrument;
+import org.knowm.xchange.kraken.KrakenExchange;
 import org.knowm.xchange.kraken.service.KrakenMarketDataService;
-import org.springframework.scheduling.annotation.Scheduled;
 
-import com.api.SubmitClient;
-import com.hope.xchangepractice.TickerLoader;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.security.InvalidKeyException;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 
 /**
  *
@@ -37,7 +35,8 @@ public class ArbitrageTrading {
     }
 
     public static Ticker krakenExchangeSettings() throws IOException {
-        KrakenMarketDataService marketDataService = TickerLoader.marketData();
+        Exchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
+        KrakenMarketDataService marketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
         return marketDataService.getTicker(CurrencyPair.BCH_USD);
     }
 

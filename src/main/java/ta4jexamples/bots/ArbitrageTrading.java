@@ -54,11 +54,8 @@ public class ArbitrageTrading {
     public static void main(String[] args)
             throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
 
-        System.out.println("Waiting 1 min");
-        Thread.sleep(100000);
         boolean reduceOnly = false;
         while (true) {
-            //Thread.sleep(100000);
             Ticker binanceTicker = binanceExchangeSettings();
             String symbol = "pf_xbtusd";
             BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);
@@ -76,6 +73,9 @@ public class ArbitrageTrading {
             } else {
                 // do nothing
             }
+
+            Thread.sleep(100000);
+
 
         }
     }

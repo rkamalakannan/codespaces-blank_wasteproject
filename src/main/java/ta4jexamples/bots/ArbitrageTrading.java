@@ -7,7 +7,7 @@ package ta4jexamples.bots;
 import com.api.SubmitClient;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
-import org.knowm.xchange.binance.BinanceExchange;
+import org.knowm.xchange.binance.BinanceUsExchange;
 import org.knowm.xchange.binance.service.BinanceMarketDataService;
 import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.dto.marketdata.Ticker;
@@ -29,16 +29,16 @@ import java.security.NoSuchAlgorithmException;
 public class ArbitrageTrading {
 
     public static Ticker binanceExchangeSettings() throws IOException {
-        Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceExchange.class);
+        Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceUsExchange.class);
         BinanceMarketDataService marketDataService = (BinanceMarketDataService) exchange.getMarketDataService();
-        Instrument instrument = new CurrencyPair("MATIC", "USDT");
+        Instrument instrument = new CurrencyPair("BTC", "USDT");
         return marketDataService.getTicker(instrument);
     }
 
     public static Ticker krakenExchangeSettings() throws IOException {
         Exchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
         KrakenMarketDataService marketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
-        Instrument instrument = new CurrencyPair("MATIC", "USD");
+        Instrument instrument = new CurrencyPair("BTC", "USD");
 
         return marketDataService.getTicker(instrument);
     }
@@ -58,7 +58,7 @@ public class ArbitrageTrading {
         while (true) {
             Thread.sleep(100000);
             Ticker binanceTicker = binanceExchangeSettings();
-            String symbol = "pf_maticusd";
+            String symbol = "pf_xbtusd";
             BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);
             BigDecimal lastPriceBinance = binanceTicker.getLast();
             System.out.println("BINANCE: " + lastPriceBinance);

@@ -59,7 +59,7 @@ public class ArbitrageTrading {
 
             Exchange exchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
             KrakenMarketDataService marketDataService = (KrakenMarketDataService) exchange.getMarketDataService();
-            Instrument instrument = new CurrencyPair("BTC", "USDT");
+            Instrument instrument = new CurrencyPair("BTC", "USD");
             Ticker binanceTicker =  marketDataService.getTicker(instrument);
             String symbol = "pf_xbtusd";
             BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);

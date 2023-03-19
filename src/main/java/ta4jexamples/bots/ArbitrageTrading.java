@@ -5,6 +5,7 @@
 package ta4jexamples.bots;
 
 import com.api.SubmitClient;
+import info.bitrich.xchangestream.binance.BinanceUsStreamingExchange;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.binance.BinanceUsExchange;
@@ -29,7 +30,7 @@ import java.security.NoSuchAlgorithmException;
 public class ArbitrageTrading {
 
     public static Ticker binanceExchangeSettings() throws IOException {
-        Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceUsExchange.class);
+        Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceUsStreamingExchange.class);
         BinanceMarketDataService marketDataService = (BinanceMarketDataService) exchange.getMarketDataService();
         Instrument instrument = new CurrencyPair("BTC", "USDT");
         return marketDataService.getTicker(instrument);
@@ -53,6 +54,7 @@ public class ArbitrageTrading {
     public static void main(String[] args)
             throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
 
+        System.out.println("Waiting 1 min");
         Thread.sleep(100000);
         boolean reduceOnly = false;
         while (true) {

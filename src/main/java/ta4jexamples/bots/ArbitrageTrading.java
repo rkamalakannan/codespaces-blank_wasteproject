@@ -58,7 +58,7 @@ public class ArbitrageTrading {
         Thread.sleep(100000);
         boolean reduceOnly = false;
         while (true) {
-            Thread.sleep(100000);
+            //Thread.sleep(100000);
             Ticker binanceTicker = binanceExchangeSettings();
             String symbol = "pf_xbtusd";
             BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);

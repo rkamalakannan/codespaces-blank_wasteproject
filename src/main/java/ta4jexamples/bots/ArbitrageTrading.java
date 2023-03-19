@@ -57,11 +57,9 @@ public class ArbitrageTrading {
         boolean reduceOnly = false;
         while (true) {
 
-            Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceUsExchange.class);
-            BinanceMarketDataService marketDataService = (BinanceMarketDataService) exchange.getMarketDataService();
+            Exchange exchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
+            KrakenMarketDataService marketDataService = (KrakenMarketDataService) exchange.getMarketDataService();
             Instrument instrument = new CurrencyPair("BTC", "USDT");
-
-
             Ticker binanceTicker =  marketDataService.getTicker(instrument);
             String symbol = "pf_xbtusd";
             BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);

@@ -24,7 +24,7 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * @author vscode
+ * @author loser
  */
 public class ArbitrageTrading {
 

@@ -30,7 +30,7 @@ import java.security.NoSuchAlgorithmException;
 public class ArbitrageTrading {
 
     public static Ticker binanceExchangeSettings() throws IOException {
-        Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceUsStreamingExchange.class);
+        Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceUsExchange.class);
         BinanceMarketDataService marketDataService = (BinanceMarketDataService) exchange.getMarketDataService();
         Instrument instrument = new CurrencyPair("BTC", "USDT");
         return marketDataService.getTicker(instrument);

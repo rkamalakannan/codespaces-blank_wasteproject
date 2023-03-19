@@ -50,7 +50,6 @@ public class ArbitrageTrading {
     // binace counter low:
 
     // if kraken is higher than binance: sell kraken limit order to binance value
-    @Retryable(value = Exception.class, maxAttempts = 2, backoff = @Backoff(delay = 100))
     public static void main(String[] args)
             throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
 

@@ -29,4 +29,4 @@ EXPOSE  8080
 
 # Run the web service on container startup.
 
-CMD ["java","-Djavax.net.debug=ssl:handshake","-Djdk.tls.client.protocols=TLSv1.2","-Dhttps.protocols=TLSv1.2","-jar", "/XchangePractice.jar"]
+CMD ["java","-Djavax.net.debug=ssl","-Djdk.tls.client.protocols=TLSv1.2","-Dhttps.protocols=TLSv1.2","-jar", "/XchangePractice.jar"]

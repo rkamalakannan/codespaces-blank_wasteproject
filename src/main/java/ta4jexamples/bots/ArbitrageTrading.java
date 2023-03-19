@@ -53,6 +53,7 @@ public class ArbitrageTrading {
     public static void main(String[] args)
             throws IOException, KeyManagementException, InvalidKeyException, NoSuchAlgorithmException, InterruptedException {
 
+        Thread.sleep(100000);
         boolean reduceOnly = false;
         while (true) {
             Thread.sleep(100000);

@@ -15,6 +15,7 @@ import org.knowm.xchange.dto.marketdata.Ticker;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.KrakenExchange;
 import org.knowm.xchange.kraken.service.KrakenMarketDataService;
+import org.knowm.xchange.service.marketdata.MarketDataService;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 
@@ -58,9 +59,9 @@ public class ArbitrageTrading {
         while (true) {
 
             Exchange exchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
-            KrakenMarketDataService marketDataService = (KrakenMarketDataService) exchange.getMarketDataService();
-            Instrument instrument = new CurrencyPair("BTC", "USD");
-            Ticker binanceTicker =  marketDataService.getTicker(instrument);
+            MarketDataService marketDataService = exchange.getMarketDataService();
+            Ticker ticker = marketDataService.getTicker(new CurrencyPair("BTC", "USD"));
+            Ticker binanceTicker =  ticker;
             String symbol = "pf_xbtusd";
             BigDecimal lastPriceKrakenFuture = SubmitClient.findTicker(symbol);
             BigDecimal lastPriceBinance = binanceTicker.getLast();

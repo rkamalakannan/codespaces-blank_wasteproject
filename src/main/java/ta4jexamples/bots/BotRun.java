@@ -26,7 +26,6 @@ import java.util.concurrent.*;
 @Component
 class BotRun {
 
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public static Ticker binanceExchangeSettings() throws IOException {
         Exchange exchange = ExchangeFactory.INSTANCE.createExchange(BinanceUsExchange.class);
@@ -49,6 +48,8 @@ class BotRun {
     // binace counter low:
     // if kraken is higher than binance: sell kraken limit order to binance value
     public void beepForAnHour() {
+         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+
         final Runnable runner = new Runnable() {
             public void run() {
                 boolean reduceOnly = false;
@@ -78,5 +79,8 @@ class BotRun {
 
             }
         };
+        scheduler.scheduleAtFixedRate(runner, 1, 1, TimeUnit.MINUTES);
+
     }
+
 }

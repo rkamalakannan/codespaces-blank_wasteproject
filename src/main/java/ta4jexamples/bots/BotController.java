@@ -10,5 +10,5 @@ class BotController{
     public String sayHello(){
         return "hello";
     }
-;
+
 }

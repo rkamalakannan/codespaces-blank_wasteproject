@@ -33,7 +33,6 @@ class BotRun {
         Exchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
         KrakenMarketDataService marketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
         Instrument instrument = new CurrencyPair("BTC", "USD");
-
         return marketDataService.getTicker(instrument);
     }
 

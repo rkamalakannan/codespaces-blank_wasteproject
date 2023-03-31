@@ -8,8 +8,9 @@ import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jetbrains.annotations.NotNull;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class SubmitClient {
 
@@ -68,7 +69,7 @@ public class SubmitClient {
         // send limit order
         String side = "buy";
         String orderType = "lmt";
-        BigDecimal size = BigDecimal.valueOf(0.01);
+        BigDecimal size = BigDecimal.valueOf(0.001);
         limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
         Object result = methods.sendOrder(orderType, symbol, side, size, limitPrice, reduceOnly);
         System.out.println("buyOrder (limit):\n" + result);
@@ -79,7 +80,7 @@ public class SubmitClient {
         // send limit order
         String side = "sell";
         String orderType = "lmt";
-        BigDecimal size = BigDecimal.valueOf(0.01);
+        BigDecimal size = BigDecimal.valueOf(0.001);
         limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
 
         Object result = methods.sendOrder(orderType, symbol, side, size, limitPrice, reduceOnly);

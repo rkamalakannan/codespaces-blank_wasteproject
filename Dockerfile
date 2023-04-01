@@ -18,7 +18,7 @@ RUN mvn package -DskipTests
 FROM openjdk:17-alpine
 
 # Copy the jar to the production image from the builder stage.
-COPY --from=build-env /app/target/xchangepractice-*.jar /XchangePractice.jar
+COPY --from=build-env /app/target/wastebot-*.jar /wastebot.jar
 #
 #COPY src/main/java/com/cerrts/jssecacerts /opt/openjdk-17/jre/lib/security/
 #COPY src/main/java/com/cerrts/jssecacerts /opt/openjdk-17/lib/security/
@@ -29,4 +29,4 @@ EXPOSE  8080
 
 # Run the web service on container startup.
 
-CMD ["java","-Djavax.net.debug=ssl","-Djdk.tls.client.protocols=TLSv1.2","-Dhttps.protocols=TLSv1.2","-jar", "/XchangePractice.jar"]
+CMD ["java","-Djavax.net.debug=ssl","-Djdk.tls.client.protocols=TLSv1.2","-Dhttps.protocols=TLSv1.2","-jar", "/wastebot.jar"]

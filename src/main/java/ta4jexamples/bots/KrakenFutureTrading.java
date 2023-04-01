@@ -19,8 +19,8 @@ public class KrakenFutureTrading {
     public static Ticker krakenFuturesExchangeSettings() throws IOException {
 
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-        spec.setApiKey("");8TfYWFiQi7rfNeWcGw43VBMn+6vUEX5aXJFpC+9d2t9HhPfi+wvWtm+n
-        spec.");485DCqYfbb2hK4gsbB7NwPHz4esjfT1K9vvFdrP0Wwaq4+Qk8wirhxJHvVYKGTlenSrNawhleF+u2MLm57/k4ghO
+        spec.setApiKey("8TfYWFiQi7rfNeWcGw43VBMn+6vUEX5aXJFpC+9d2t9HhPfi+wvWtm+n");
+        spec.setSecretKey("485DCqYfbb2hK4gsbB7NwPHz4esjfT1K9vvFdrP0Wwaq4+Qk8wirhxJHvVYKGTlenSrNawhleF+u2MLm57/k4ghO");
         spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
 
         Exchange exchange = ExchangeFactory.INSTANCE.createExchange(spec);

@@ -21,22 +21,21 @@
 	<repositories>
 		<repository>
 			<id>sonatype-oss-snapshot</id>
-			<snapshots/>
+			<snapshots />
 			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		  </repository>
+		</repository>
 	</repositories>
 
 
-
 	<dependencies>
-		
-	
-	<!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
-<dependency>
-    <groupId>com.google.code.gson</groupId>
-    <artifactId>gson</artifactId>
-    <version>2.10.1</version>
-</dependency>
+
+
+		<!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.10.1</version>
+		</dependency>
 
 
 		<dependency>
@@ -131,10 +130,10 @@
 		</dependency>
 
 		<dependency>
-            <groupId>org.jfree</groupId>
-            <artifactId>jfreechart</artifactId>
-            <version>1.0.17</version>
-        </dependency>
+			<groupId>org.jfree</groupId>
+			<artifactId>jfreechart</artifactId>
+			<version>1.0.17</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.retry</groupId>
 			<artifactId>spring-retry</artifactId>
@@ -153,12 +152,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
-		  </dependency>
-		  <dependency>
+		</dependency>
+		<dependency>
 			<groupId>org.knowm.xchange</groupId>
 			<artifactId>xchange-krakenfutures</artifactId>
 			<version>5.1.1-SNAPSHOT</version>
-		  </dependency>
+		</dependency>
 
 
 	</dependencies>
@@ -189,22 +188,22 @@
 				<artifactId>build-helper-maven-plugin</artifactId>
 				<version>3.3.0</version>
 				<executions>
-				  <execution>
-					<id>add-source</id>
-					<phase>generate-sources</phase>
-					<goals>
-					  <goal>add-source</goal>
-					</goals>
-					<configuration>
-					  <sources>
-						<source>krakenfutures</source>
-					  </sources>
-					</configuration>
-				  </execution>
+					<execution>
+						<id>add-source</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>krakenfutures</source>
+							</sources>
+						</configuration>
+					</execution>
 				</executions>
-			  </plugin>
+			</plugin>
 		</plugins>
 	</build>
-	
+
 
 </project>

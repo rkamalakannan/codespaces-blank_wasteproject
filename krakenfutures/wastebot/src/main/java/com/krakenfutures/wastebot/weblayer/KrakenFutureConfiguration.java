@@ -17,6 +17,7 @@ import org.knowm.xchange.ExchangeSpecification;
 import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.marketdata.Ticker;
 import org.knowm.xchange.dto.trade.LimitOrder;
+import org.knowm.xchange.dto.trade.MarketOrder;
 import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
@@ -83,6 +84,17 @@ public class KrakenFutureConfiguration {
 
     }
 
+    public void placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+            throws IOException {
+
+        String orderId = exchange.getTradeService()
+                .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                        .originalAmount(originalAmount)
+                        .build());
+
+        System.out.println("Placed Limit Order " + bidType + "with order id :" + orderId);
+    }
+
     public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
             throws IOException {
 
@@ -101,9 +113,9 @@ public class KrakenFutureConfiguration {
             throws IOException {
         BigDecimal stopPrice;
         if (bidType.equals("BID")) {
-            stopPrice = ticker.getLast().plus().add(ticker.getLast().multiply(BigDecimal.valueOf(1 / 100.0)));
+            stopPrice = ticker.getLast().plus().add(ticker.getLast().multiply(BigDecimal.valueOf(0.5 / 100.0)));
         } else {
-            stopPrice = ticker.getLast().subtract(ticker.getLast().multiply(BigDecimal.valueOf(1 / 100.0)));
+            stopPrice = ticker.getLast().subtract(ticker.getLast().multiply(BigDecimal.valueOf(0.5 / 100.0)));
         }
         stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
 

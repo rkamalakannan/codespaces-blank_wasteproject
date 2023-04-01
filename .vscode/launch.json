@@ -2,6 +2,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "KrakenFutureTrading",
+            "request": "launch",
+            "mainClass": "ta4jexamples.bots.KrakenFutureTrading",
+            "projectName": "xchangepractice"
+        },
+        {
+            "type": "java",
             "name": "ArbitrageTrading",
             "request": "launch",
             "mainClass": "ta4jexamples.bots.ArbitrageTrading",

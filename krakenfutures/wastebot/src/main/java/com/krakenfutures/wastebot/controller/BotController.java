@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.krakenfutures.wastebot.weblayer.KrakenConfiguration;
+import com.krakenfutures.wastebot.weblayer.KrakenFutureConfiguration;
 
 /**
  *
@@ -25,15 +25,15 @@ import com.krakenfutures.wastebot.weblayer.KrakenConfiguration;
 @RestController
 public class BotController {
 
-
     @Autowired
-    KrakenConfiguration krakenConfiguration;
+    KrakenFutureConfiguration krakenConfiguration;
+
     @GetMapping("/v1/execute/{asset}/{originalAmount}")
-    public void executeInstrument(@PathVariable String asset, @PathVariable BigDecimal originalAmount) throws IOException{
+    public void executeInstrument(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
+            throws IOException {
         Instrument instrument = new CurrencyPair(asset, "USD");
         krakenConfiguration.placeStopOrder(instrument, originalAmount, "ASK");
-    
-    }
 
+    }
 
 }

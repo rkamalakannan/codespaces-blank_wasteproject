@@ -8,6 +8,7 @@ package com.krakenfutures.wastebot.weblayer;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Collection;
 import java.util.List;
 
 import org.knowm.xchange.Exchange;
@@ -22,6 +23,7 @@ import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataService;
+import org.knowm.xchange.service.trade.params.DefaultCancelAllOrdersByInstrument;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,7 +31,9 @@ import org.springframework.stereotype.Component;
  * @author vscode
  */
 @Component
-public class KrakenConfiguration {
+public class KrakenFutureConfiguration {
+
+    private Exchange exchange = createExchange();
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
@@ -40,37 +44,40 @@ public class KrakenConfiguration {
     }
 
     public Ticker getTickers(Instrument instrument) throws IOException {
-        Exchange exchange = createExchange();
         KrakenFuturesMarketDataService marketDataService = (KrakenFuturesMarketDataService) exchange
                 .getMarketDataService();
         return marketDataService.getTicker(instrument);
     }
 
     public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType) throws IOException {
-        Exchange exchange = createExchange();
         Ticker ticker = getTickers(instrument);
         exchange.getTradeService().placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                 .limitPrice(ticker.getLast())
                 .originalAmount(originalAmount)
                 .build());
-        List<LimitOrder> openOrders = exchange.getTradeService().getOpenOrders().getOpenOrders();
-        System.out.println(openOrders.get(0).toString());
     }
 
     public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType) throws IOException {
-        Exchange exchange = createExchange();
         Ticker ticker = getTickers(instrument);
-        BigDecimal stopPrice = ticker.getLast().subtract(ticker.getLast().multiply(BigDecimal.valueOf(1/100.0)));
+        cancelTopFirstOrder(instrument);
+        BigDecimal stopPrice = ticker.getLast().subtract(ticker.getLast().multiply(BigDecimal.valueOf(1 / 100.0)));
         stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
-        System.out.println(stopPrice);
         exchange.getTradeService().placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                 .intention(StopOrder.Intention.STOP_LOSS)
                 .stopPrice(stopPrice)
                 .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
                 .originalAmount(originalAmount)
                 .build());
-        OpenOrders openOrders = exchange.getTradeService().getOpenOrders();
-        System.out.println("HiddenOrders:" + openOrders.getHiddenOrders());
+    }
+
+    public void cancelTopFirstOrder(Instrument instrument) throws IOException {
+
+        List<LimitOrder> openOrders = exchange.getTradeService().getOpenOrders().getOpenOrders();
+        if (!openOrders.isEmpty()) {
+            exchange.getTradeService().cancelOrder(openOrders.get(0).getId());
+        }
+        exchange.getTradeService().cancelAllOrders(new DefaultCancelAllOrdersByInstrument(instrument));
+
     }
 
 }

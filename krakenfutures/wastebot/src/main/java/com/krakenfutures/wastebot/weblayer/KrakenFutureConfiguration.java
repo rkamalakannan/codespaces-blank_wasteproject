@@ -24,6 +24,7 @@ import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataService;
 import org.knowm.xchange.service.trade.params.DefaultCancelAllOrdersByInstrument;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,6 +33,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class KrakenFutureConfiguration {
+
+    @Autowired
+    KrakenSpotConfiguration krakenSpotConfiguration;
 
     private Exchange exchange = createExchange();
 
@@ -49,25 +53,86 @@ public class KrakenFutureConfiguration {
         return marketDataService.getTicker(instrument);
     }
 
-    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType) throws IOException {
-        Ticker ticker = getTickers(instrument);
-        exchange.getTradeService().placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
-                .limitPrice(ticker.getLast())
-                .originalAmount(originalAmount)
-                .build());
+    public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
+        Ticker krakenFutureTicker = getTickers(instrument);
+        Ticker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
+
+        BigDecimal krakenFutureLastValue = krakenFutureTicker.getLast().abs();
+        BigDecimal krakenSpotLastValue = krakenSpotTicker.getLast().abs();
+
+        // if kraken spot lower than future value
+        // sell future value and buy kraken spot value
+        // ask sell
+        // bid buy
+        if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
+            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureTicker);
+            placeStopOrder(instrument, originalAmount, "ASK", krakenFutureTicker);
+            placeTakeProfitOrder(instrument, originalAmount, "ASK", krakenSpotTicker);
+
+        }
+        // if kraken spot higher than future value
+        // buy future value and sell kraken spot value
+        else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
+            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureTicker);
+            placeStopOrder(instrument, originalAmount, "BID", krakenSpotTicker);
+            placeTakeProfitOrder(instrument, originalAmount, "BID", krakenSpotTicker);
+
+        } else {
+            // do nothing
+        }
+
     }
 
-    public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType) throws IOException {
-        Ticker ticker = getTickers(instrument);
-        cancelTopFirstOrder(instrument);
-        BigDecimal stopPrice = ticker.getLast().subtract(ticker.getLast().multiply(BigDecimal.valueOf(1 / 100.0)));
+    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+            throws IOException {
+
+        BigDecimal limitPrice = ticker.getLast().setScale(0, RoundingMode.DOWN);
+
+        String orderId = exchange.getTradeService()
+                .placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                        .limitPrice(limitPrice)
+                        .originalAmount(originalAmount)
+                        .build());
+
+        System.out.println("Placed Limit Order " + bidType + "for value" + limitPrice + "with order id :" + orderId);
+    }
+
+    public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+            throws IOException {
+        BigDecimal stopPrice;
+        if (bidType.equals("BID")) {
+            stopPrice = ticker.getLast().plus().add(ticker.getLast().multiply(BigDecimal.valueOf(1 / 100.0)));
+        } else {
+            stopPrice = ticker.getLast().subtract(ticker.getLast().multiply(BigDecimal.valueOf(1 / 100.0)));
+        }
         stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
-        exchange.getTradeService().placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
-                .intention(StopOrder.Intention.STOP_LOSS)
-                .stopPrice(stopPrice)
-                .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
-                .originalAmount(originalAmount)
-                .build());
+
+        String orderId = exchange.getTradeService()
+                .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                        .intention(StopOrder.Intention.STOP_LOSS)
+                        .stopPrice(stopPrice)
+                        .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
+                        .originalAmount(originalAmount)
+                        .build());
+
+        System.out.println("Placed Stop Loss" + bidType + "for value" + stopPrice + "with order id :" + orderId);
+
+    }
+
+    public void placeTakeProfitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+            throws IOException {
+        BigDecimal stopPrice = ticker.getLast();
+        stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
+        String orderId = exchange.getTradeService()
+                .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                        .intention(StopOrder.Intention.TAKE_PROFIT)
+                        .stopPrice(stopPrice)
+                        .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
+                        .originalAmount(originalAmount)
+                        .build());
+
+        System.out.println("Placed Take Profit" + bidType + "for value" + stopPrice + "with order id :" + orderId);
+
     }
 
     public void cancelTopFirstOrder(Instrument instrument) throws IOException {

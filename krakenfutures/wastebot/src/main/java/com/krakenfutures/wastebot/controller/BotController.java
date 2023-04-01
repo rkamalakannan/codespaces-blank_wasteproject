@@ -32,7 +32,7 @@ public class BotController {
     public void executeInstrument(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
             throws IOException {
         Instrument instrument = new CurrencyPair(asset, "USD");
-        krakenConfiguration.placeStopOrder(instrument, originalAmount, "ASK");
+        krakenConfiguration.placeOrder(instrument, originalAmount);
 
     }
 

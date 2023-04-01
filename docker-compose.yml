@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  wastebot:
+    image: wastebot
+    build:
+      context: krakenfutures/wastebot
+      dockerfile: krakenfutures/wastebot/Dockerfile
+    ports:
+      - 8090:8090

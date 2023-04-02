@@ -224,6 +224,8 @@ public class KrakenFutureConfiguration {
         // exchange.getTradeService().cancelAllOrders(new
         // DefaultCancelAllOrdersByInstrument(instrument));
 
+        System.out.println("Inside Cancelling Orders");
+
         if (!openOrders.getHiddenOrders().isEmpty()) {
             System.out.println("Before Cancelling Trigger Order the count was:" +openOrders.getHiddenOrders().size());
             openOrders.getHiddenOrders().stream().forEach(arg0 -> {

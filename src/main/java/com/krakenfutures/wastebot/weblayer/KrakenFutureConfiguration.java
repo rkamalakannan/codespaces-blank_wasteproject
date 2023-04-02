@@ -127,12 +127,18 @@ public class KrakenFutureConfiguration {
     public void placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
             throws IOException {
 
-        String orderId = exchange.getTradeService()
-                .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
-                        .originalAmount(originalAmount)
-                        .build());
+        try {
+            String orderId = exchange.getTradeService()
+                    .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                            .originalAmount(originalAmount)
+                            .build());
 
-        System.out.println("Placed Market Order " + bidType + "with order id :" + orderId);
+            System.out.println("Placed Market Order " + bidType + "with order id :" + orderId);
+
+        } catch (Exception e) {
+            System.out.println("Inside Market Order Exception:" + e.getMessage());
+        }
+
     }
 
     public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)

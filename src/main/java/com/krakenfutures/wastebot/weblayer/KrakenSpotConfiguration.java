@@ -10,10 +10,10 @@ import java.io.IOException;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.currency.CurrencyPair;
-import org.knowm.xchange.dto.marketdata.Ticker;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.KrakenExchange;
-import org.knowm.xchange.kraken.service.KrakenMarketDataService;
+import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
+import org.knowm.xchange.kraken.service.KrakenMarketDataServiceRaw;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,9 +29,9 @@ public class KrakenSpotConfiguration {
         return ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
     }
 
-    public Ticker getKrakenSpotTicker(Instrument instrument) throws IOException {
-        KrakenMarketDataService marketDataService = (KrakenMarketDataService) krakenSpotExchange.getMarketDataService();
+    public KrakenTicker getKrakenSpotTicker(Instrument instrument) throws IOException {
+        KrakenMarketDataServiceRaw marketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange.getMarketDataService();
         
-        return marketDataService.getTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USDT"));
+        return marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USDT"));
     }
 }

@@ -240,7 +240,9 @@ public class KrakenFutureConfiguration {
             });
         }
 
-        System.out.println("After Cancelling Trigger Order the count is:" +openOrders.getHiddenOrders().size());
+        OpenOrders postOpenOrders = exchange.getTradeService().getOpenOrders();
+
+        System.out.println("After Cancelling Trigger Order the count is:" +postOpenOrders.getHiddenOrders().size());
 
 
 

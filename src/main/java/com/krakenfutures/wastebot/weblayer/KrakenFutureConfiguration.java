@@ -96,26 +96,31 @@ public class KrakenFutureConfiguration {
             placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenFutureLastValue);
-            if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
-                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
-                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
-            else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
-                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
-                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+
+            if (openPositionsList.size() > 0) {
+                if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
+                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
+                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+                else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
+                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
+                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+                }
             }
-        }
-        else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
+        } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
             placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenSpotLastValue);
-            if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
-                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
-                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
-            else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
-                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
-                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+
+            if (openPositionsList.size() > 0) {
+                if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
+                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
+                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+                else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
+                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
+                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+                }
             }
         } else {
             // do nothing

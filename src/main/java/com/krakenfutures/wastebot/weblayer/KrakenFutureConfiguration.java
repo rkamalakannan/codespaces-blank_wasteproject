@@ -27,8 +27,10 @@ import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
+import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataService;
+import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelAllOrdersByInstrument;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndIdParams;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,21 +56,21 @@ public class KrakenFutureConfiguration {
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 
-    public Ticker getTickers(Instrument instrument) throws IOException {
-        KrakenFuturesMarketDataService marketDataService = (KrakenFuturesMarketDataService) exchange
+    public KrakenFuturesTicker getTickers(Instrument instrument) throws IOException {
+        KrakenFuturesMarketDataServiceRaw marketDataService = (KrakenFuturesMarketDataServiceRaw) exchange
                 .getMarketDataService();
-        return marketDataService.getTicker(instrument);
+        return marketDataService.getKrakenFuturesTicker(instrument);
     }
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
-        Ticker krakenFutureTicker = getTickers(instrument);
+        KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
         Ticker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
 
-        BigDecimal krakenFutureLastValue = krakenFutureTicker.getLast();
+        BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
         BigDecimal krakenSpotLastValue = krakenSpotTicker.getLast();
 
-        System.out.println("krakenFutureLastValue" + krakenFutureLastValue);
-        System.out.println("krakenSpotLastValue" + krakenSpotLastValue);
+        System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
+        System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
 
         checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
@@ -88,17 +90,17 @@ public class KrakenFutureConfiguration {
         // ask sell
         // bid buy
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
-            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureTicker);
-            placeStopOrder(instrument, originalAmount, triggerOrderType, krakenFutureTicker);
-            placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotTicker);
+            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue);
+            placeStopOrder(instrument, originalAmount, triggerOrderType, krakenFutureLastValue);
+            placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
 
         }
         // if kraken spot higher than future value
         // buy future value and sell kraken spot value
         else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
-            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureTicker);
-            placeStopOrder(instrument, originalAmount, triggerOrderType, krakenSpotTicker);
-            placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotTicker);
+            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue);
+            placeStopOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+            placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
 
         } else {
             // do nothing
@@ -106,7 +108,7 @@ public class KrakenFutureConfiguration {
 
     }
 
-    public void placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+    public void placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
             throws IOException {
 
         String orderId = exchange.getTradeService()
@@ -117,10 +119,10 @@ public class KrakenFutureConfiguration {
         System.out.println("Placed Limit Order " + bidType + "with order id :" + orderId);
     }
 
-    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
             throws IOException {
 
-        BigDecimal limitPrice = ticker.getLast();
+        BigDecimal limitPrice = price;
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
         else if (instrument.getBase().getCurrencyCode().equals("MATIC")) {
@@ -136,13 +138,13 @@ public class KrakenFutureConfiguration {
         System.out.println("Placed Limit Order " + bidType + "for value" + limitPrice + "with order id :" + orderId);
     }
 
-    public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+    public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
             throws IOException {
         BigDecimal stopPrice;
         if (bidType.equals("BID")) {
-            stopPrice = ticker.getLast().plus().add(ticker.getLast().multiply(BigDecimal.valueOf(0.5 / 100.0)));
+            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
         } else {
-            stopPrice = ticker.getLast().subtract(ticker.getLast().multiply(BigDecimal.valueOf(0.5 / 100.0)));
+            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
         }
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
@@ -162,9 +164,9 @@ public class KrakenFutureConfiguration {
 
     }
 
-    public void placeTakeProfitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, Ticker ticker)
+    public void placeTakeProfitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
             throws IOException {
-        BigDecimal stopPrice = ticker.getLast();
+        BigDecimal stopPrice = price;
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
         else if (instrument.getBase().getCurrencyCode().equals("MATIC")) {

@@ -69,12 +69,15 @@ public class KrakenFutureConfiguration {
 
         String triggerOrderType = "";
 
-        if (openPositionsList.size() > 0)
+        if (openPositionsList.size() > 0){
             if (openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG)) {
                 triggerOrderType = "ASK";
             } else {
                 triggerOrderType = "BID";
             }
+        }
+    
+            
         checkOpenOrdersandCancelFirst(instrument);
 
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
@@ -95,6 +98,8 @@ public class KrakenFutureConfiguration {
         // ask sell
         // bid buy
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
+            if(triggerOrderType.isEmpty()) triggerOrderType="ASK";
+
             placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue);
             placeStopOrder(instrument, originalAmount, triggerOrderType, krakenFutureLastValue);
             placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
@@ -103,6 +108,8 @@ public class KrakenFutureConfiguration {
         // if kraken spot higher than future value
         // buy future value and sell kraken spot value
         else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
+            if(triggerOrderType.isEmpty()) triggerOrderType="BID";
+
             placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue);
             placeStopOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
             placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
@@ -218,16 +225,25 @@ public class KrakenFutureConfiguration {
         // DefaultCancelAllOrdersByInstrument(instrument));
 
         if (!openOrders.getHiddenOrders().isEmpty()) {
+            System.out.println("Before Cancelling Trigger Order the count was:" +openOrders.getHiddenOrders().size());
             openOrders.getHiddenOrders().stream().forEach(arg0 -> {
                 try {
                     String orderId = arg0.getId();
                     exchange.getTradeService()
                             .cancelOrder(new DefaultCancelOrderByInstrumentAndIdParams(instrument, orderId));
+                    System.out.println("Cancelled Order" +orderId);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             });
         }
+
+        System.out.println("After Cancelling Trigger Order the count is:" +openOrders.getHiddenOrders().size());
+
+
+
+
+
     }
 
     public List<OpenPosition> getPositions() throws IOException {

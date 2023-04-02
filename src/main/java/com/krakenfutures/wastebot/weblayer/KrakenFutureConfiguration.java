@@ -26,6 +26,7 @@ import org.knowm.xchange.dto.trade.MarketOrder;
 import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
+import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
@@ -83,10 +84,10 @@ public class KrakenFutureConfiguration {
         checkOpenOrdersandCancelFirst(instrument);
 
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
-        Ticker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
+        KrakenTicker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
 
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
-        BigDecimal krakenSpotLastValue = krakenSpotTicker.getLast();
+        BigDecimal krakenSpotLastValue = krakenSpotTicker.getClose().getPrice();
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());

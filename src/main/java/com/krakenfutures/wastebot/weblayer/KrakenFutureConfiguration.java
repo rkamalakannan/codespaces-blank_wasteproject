@@ -90,37 +90,34 @@ public class KrakenFutureConfiguration {
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
-            placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue);
+            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenFutureLastValue);
-
-            if (openPositionsList.size() > 0) {
-                if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
-                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
-                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
-                else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
-                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
-                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
-                }
-            }
+            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+                    krakenSpotLastValue);
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue);
+            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenSpotLastValue);
-
-            if (openPositionsList.size() > 0) {
-                if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
-                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
-                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
-                else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
-                        && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
-                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
-                }
-            }
+            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+                    krakenSpotLastValue);
         } else {
             // do nothing
+        }
+    }
+
+    private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount, List<OpenPosition> openPositionsList,
+            String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue) throws IOException {
+        if (openPositionsList.size() > 0) {
+            if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
+                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
+                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+            else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
+                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
+                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue);
+            }
         }
     }
 

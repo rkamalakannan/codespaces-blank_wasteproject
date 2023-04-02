@@ -63,14 +63,6 @@ public class KrakenFutureConfiguration {
     }
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
-        KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
-        Ticker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
-
-        BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
-        BigDecimal krakenSpotLastValue = krakenSpotTicker.getLast();
-
-        System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
-        System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
 
         checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
@@ -84,6 +76,19 @@ public class KrakenFutureConfiguration {
                 triggerOrderType = "BID";
             }
         checkOpenOrdersandCancelFirst(instrument);
+
+        KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
+        Ticker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
+
+        BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
+        BigDecimal krakenSpotLastValue = krakenSpotTicker.getLast();
+
+        System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
+        System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
+
+       
+
+       
 
         // if kraken spot lower than future value
         // sell future value and buy kraken spot value

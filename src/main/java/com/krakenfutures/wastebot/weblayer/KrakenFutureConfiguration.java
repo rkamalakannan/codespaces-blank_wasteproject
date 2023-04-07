@@ -18,16 +18,25 @@ import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.account.AccountInfo;
 import org.knowm.xchange.dto.account.OpenPosition;
 import org.knowm.xchange.dto.account.Wallet;
+import org.knowm.xchange.dto.meta.InstrumentMetaData;
 import org.knowm.xchange.dto.trade.LimitOrder;
 import org.knowm.xchange.dto.trade.MarketOrder;
 import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
+import org.knowm.xchange.kraken.dto.marketdata.KrakenAssetPairs;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
+import org.knowm.xchange.kraken.dto.trade.KrakenOpenPosition;
+import org.knowm.xchange.kraken.dto.trade.results.KrakenOpenPositionsResult;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
+import org.knowm.xchange.krakenfutures.dto.account.KrakenFuturesAccountInfo;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
+import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOpenPosition;
+import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOpenPositions;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
+import org.knowm.xchange.krakenfutures.service.KrakenFuturesAccountService;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataServiceRaw;
+import org.knowm.xchange.krakenfutures.service.KrakenFuturesTradeServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelAllOrdersByInstrument;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndIdParams;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,8 +70,23 @@ public class KrakenFutureConfiguration {
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
 
+        // KrakenAssetPairs krakenAssetPairs = krakenSpotConfiguration.getKrakenAssetPairs(instrument);
+
+        // int scaleLevel = krakenAssetPairs.getAssetPairMap()
+        //         .get(instrument.getBase() + instrument.getCounter().getCurrencyCode()).getPairScale();
+        // // KrakenFuturesInstrument krakenFuturesInstrument =
+        // // marketDataService.getKrakenFuturesInstruments()
+        // // .getInstruments().stream().filter(arg0 ->
+        // // arg0.getSymbol().equals(instrument.getBase()))
+        // // .findAny().get();
+
+        // InstrumentMetaData metaData = exchange.getExchangeMetaData().getInstruments().get(instrument);
+
         checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
+
+        // List<KrakenFuturesOpenPosition> openPositionsListRaw = getPositionsRaw();
+
 
         String triggerOrderType = "";
 
@@ -83,32 +107,38 @@ public class KrakenFutureConfiguration {
         KrakenTicker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
 
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
+        // .setScale(krakenFuturesInstrument.getVolumeScale());
         BigDecimal krakenSpotLastValue = krakenSpotTicker.getClose().getPrice();
+        // .setScale(krakenFuturesInstrument.getVolumeScale());
+        // originalAmount = orderValuesHelper.adjustAmount(originalAmount);
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
-            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue);
+            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue, openPositionsList);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenFutureLastValue);
-            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
+                    openPositionPrice,
                     krakenSpotLastValue);
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue);
+            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue, openPositionsList);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenSpotLastValue);
-            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
+                    openPositionPrice,
                     krakenSpotLastValue);
         } else {
             // do nothing
         }
     }
 
-    private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount, List<OpenPosition> openPositionsList,
+    private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount,
+            List<OpenPosition> openPositionsList,
             String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue) throws IOException {
         if (openPositionsList.size() > 0) {
             if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
@@ -138,29 +168,59 @@ public class KrakenFutureConfiguration {
 
     }
 
-    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
+    /**
+     * 
+     * @param instrument
+     * @param originalAmount
+     * @param bidType
+     * @param price
+     * @param openPositionsList
+     * @throws IOException
+     *                     if short position:
+     *                     BID cannot be higher than the open position price
+     *                     if LONG position:
+     *                     ASK cannot be lesser than the open position price
+     */
+
+    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
+            List<OpenPosition> openPositionsList)
             throws IOException {
 
+        boolean shouldBePlaced = true;
+        BigDecimal openPositionPrice = BigDecimal.ZERO;
         BigDecimal limitPrice = price;
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
         else if (instrument.getBase().getCurrencyCode().equals("MATIC")) {
             limitPrice = limitPrice.setScale(4, RoundingMode.DOWN);
         }
+
+        if (openPositionsList.size() > 0) {
+            openPositionPrice = openPositionsList.get(0).getPrice();
+            if (limitPrice.compareTo(openPositionPrice) > 0
+                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT) && bidType.equals("BID")) {
+                shouldBePlaced = false;
+            } else if (limitPrice.compareTo(openPositionPrice) < 0
+                    && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG) && bidType.equals("ASK")) {
+                shouldBePlaced = false;
+            }
+        }
         try {
 
-            String orderId = exchange.getTradeService()
-                    .placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
-                            .limitPrice(limitPrice)
-                            .originalAmount(originalAmount)
-                            .build());
-            System.out
-                    .println("Placed Limit Order " + bidType + "for value" + limitPrice + "with order id :" + orderId);
+            if (shouldBePlaced) {
+                String orderId = exchange.getTradeService()
+                        .placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                                .limitPrice(limitPrice)
+                                .originalAmount(originalAmount)
+                                .build());
+                System.out
+                        .println("Placed Limit Order " + bidType + "for value" + limitPrice + "with order id :"
+                                + orderId);
+            }
 
         } catch (Exception e) {
             System.out.println("Inside Exception Limit Order:" + e.getMessage());
         }
-
     }
 
     public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
@@ -230,6 +290,7 @@ public class KrakenFutureConfiguration {
     }
 
     public void checkAccount() throws IOException {
+
         AccountInfo accountInfo = exchange.getAccountService().getAccountInfo();
         System.out.println(accountInfo);
         System.out.println(accountInfo.getWallet(Wallet.WalletFeature.FUTURES_TRADING).toString());
@@ -276,5 +337,19 @@ public class KrakenFutureConfiguration {
         }
         return openPositions;
     }
+
+
+    public List<KrakenFuturesOpenPosition> getPositionsRaw() throws IOException {
+
+        KrakenFuturesTradeServiceRaw tradeServiceRaw = (KrakenFuturesTradeServiceRaw) exchange
+                .getTradeService();
+        List<KrakenFuturesOpenPosition> openPositions = tradeServiceRaw.getKrakenFuturesOpenPositions().getOpenPositions();
+        for (KrakenFuturesOpenPosition openPosition : openPositions) {
+            System.out.println(openPosition);
+        }
+        return openPositions;
+    }
+
+
 
 }

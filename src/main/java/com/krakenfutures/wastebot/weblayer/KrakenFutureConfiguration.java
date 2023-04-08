@@ -14,8 +14,6 @@ import java.util.Objects;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
-import org.knowm.xchange.binance.dto.marketdata.BinanceFundingRate;
-import org.knowm.xchange.binance.dto.marketdata.BinancePrice;
 import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.account.AccountInfo;
 import org.knowm.xchange.dto.account.OpenPosition;
@@ -82,11 +80,10 @@ public class KrakenFutureConfiguration {
         // InstrumentMetaData metaData =
         // exchange.getExchangeMetaData().getInstruments().get(instrument);
 
-        // BinanceFundingRate binancePrice = binanceFutureConfiguration.getBinanceFutureTicker();
+        // BinanceFundingRate binancePrice =
+        // binanceFutureConfiguration.getBinanceFutureTicker();
         checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
-
-        // List<KrakenFuturesOpenPosition> openPositionsListRaw = getPositionsRaw();
 
         String triggerOrderType = "";
 
@@ -114,7 +111,8 @@ public class KrakenFutureConfiguration {
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
-        // System.out.println("Binance Future Last Value" + binancePrice.getMarkPrice().toString());
+        // System.out.println("Binance Future Last Value" +
+        // binancePrice.getMarkPrice().toString());
 
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
@@ -145,10 +143,12 @@ public class KrakenFutureConfiguration {
         if (openPositionsList.size() > 0) {
             if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
                     && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
-                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue, openPositionsList);
+                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue,
+                        openPositionsList);
             else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
                     && openPositionsList.get(0).getType().equals(OpenPosition.Type.SHORT)) {
-                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue,openPositionsList);
+                placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue,
+                        openPositionsList);
             }
         }
     }
@@ -268,6 +268,13 @@ public class KrakenFutureConfiguration {
 
         boolean shouldBePlaced = true;
 
+        BigDecimal positionSize = BigDecimal.ZERO;
+        if (openPositionsList.size() > 0) {
+            positionSize = openPositionsList.get(0).getSize();
+        }else {
+            positionSize = originalAmount;
+        }
+
         boolean isAllowedTrade = isAllowedTrade(bidType, openPositionsList, shouldBePlaced, price);
         BigDecimal stopPrice = price;
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
@@ -282,7 +289,7 @@ public class KrakenFutureConfiguration {
                                 .intention(StopOrder.Intention.TAKE_PROFIT)
                                 .stopPrice(stopPrice)
                                 .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
-                                .originalAmount(originalAmount)
+                                .originalAmount(positionSize)
                                 .build());
 
                 System.out.println(

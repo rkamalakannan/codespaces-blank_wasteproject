@@ -82,7 +82,7 @@ public class KrakenFutureConfiguration {
         // InstrumentMetaData metaData =
         // exchange.getExchangeMetaData().getInstruments().get(instrument);
 
-        BinanceFundingRate binancePrice = binanceFutureConfiguration.getBinanceFutureTicker();
+        // BinanceFundingRate binancePrice = binanceFutureConfiguration.getBinanceFutureTicker();
         checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
 
@@ -114,11 +114,7 @@ public class KrakenFutureConfiguration {
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
-        System.out.println("Binance Future Last Value" + binancePrice.getMarkPrice().toString());
-
-        BigDecimal binanceFuturePrice = binancePrice.getMarkPrice();
-
-        krakenSpotLastValue = binanceFuturePrice;
+        // System.out.println("Binance Future Last Value" + binancePrice.getMarkPrice().toString());
 
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())

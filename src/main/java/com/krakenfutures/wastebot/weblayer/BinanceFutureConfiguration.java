@@ -30,15 +30,11 @@ public class BinanceFutureConfiguration {
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(BinanceUsExchange.class);
-        spec.setHost(BinanceExchange.FUTURES_URL);
+        spec.setHost(BinanceUsExchange.FUTURES_URL);
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 
     private Exchange binanceFutureExchange = createExchange();
-
-    public Exchange getBinanceFutureExchangeSettings() {
-        return ExchangeFactory.INSTANCE.createExchange(BinanceExchange.class);
-    }
 
     public BinanceFundingRate getBinanceFutureTicker() throws IOException {
         BinanceMarketDataServiceRaw marketDataService = (BinanceMarketDataServiceRaw) binanceFutureExchange

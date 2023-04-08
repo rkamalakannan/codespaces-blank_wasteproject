@@ -189,7 +189,6 @@ public class KrakenFutureConfiguration {
             throws IOException {
 
         boolean shouldBePlaced = true;
-        BigDecimal openPositionPrice = BigDecimal.ZERO;
         BigDecimal limitPrice = price;
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
@@ -269,7 +268,7 @@ public class KrakenFutureConfiguration {
 
         boolean shouldBePlaced = true;
 
-        boolean isAllowedTrade = isAllowedTrade(bidType, openPositionsList, shouldBePlaced, originalAmount);
+        boolean isAllowedTrade = isAllowedTrade(bidType, openPositionsList, shouldBePlaced, price);
         BigDecimal stopPrice = price;
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);

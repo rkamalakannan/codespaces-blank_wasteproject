@@ -9,6 +9,7 @@ import org.knowm.xchange.binance.Binance;
 import org.knowm.xchange.binance.BinanceExchange;
 import org.knowm.xchange.binance.BinanceFutures;
 import org.knowm.xchange.binance.BinanceFuturesAuthenticated;
+import org.knowm.xchange.binance.BinanceUsExchange;
 import org.knowm.xchange.binance.dto.marketdata.BinanceFundingRate;
 import org.knowm.xchange.binance.dto.marketdata.BinancePrice;
 import org.knowm.xchange.binance.dto.meta.exchangeinfo.BinanceExchangeInfo;
@@ -28,12 +29,12 @@ import org.springframework.stereotype.Component;
 public class BinanceFutureConfiguration {
 
     public Exchange createExchange() {
-        ExchangeSpecification spec = new ExchangeSpecification(BinanceExchange.class);
+        ExchangeSpecification spec = new ExchangeSpecification(BinanceUsExchange.class);
         spec.setHost(BinanceExchange.FUTURES_URL);
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 
-    private Exchange binanceFutureExchange = getBinanceFutureExchangeSettings();
+    private Exchange binanceFutureExchange = createExchange();
 
     public Exchange getBinanceFutureExchangeSettings() {
         return ExchangeFactory.INSTANCE.createExchange(BinanceExchange.class);

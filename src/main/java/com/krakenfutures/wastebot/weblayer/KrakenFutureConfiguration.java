@@ -235,9 +235,9 @@ public class KrakenFutureConfiguration {
             throws IOException {
         BigDecimal stopPrice;
         if (bidType.equals("BID")) {
-            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.05 / 100.0)));
         } else {
-            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.05 / 100.0)));
         }
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);

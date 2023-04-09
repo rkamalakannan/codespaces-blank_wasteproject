@@ -118,7 +118,8 @@ public class KrakenFutureConfiguration {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
             placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue, openPositionsList);
-            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue, openPositionsList);
+            // placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
+            // openPositionsList);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenFutureLastValue);
             placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
@@ -127,7 +128,9 @@ public class KrakenFutureConfiguration {
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue, openPositionsList);
+            placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue, openPositionsList);
+            // placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
+            // openPositionsList);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenSpotLastValue);
             placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,

@@ -117,6 +117,7 @@ public class KrakenFutureConfiguration {
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
+            placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue, openPositionsList);
             placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue, openPositionsList);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenFutureLastValue);
@@ -153,16 +154,29 @@ public class KrakenFutureConfiguration {
         }
     }
 
-    public void placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
+    public void placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
+            List<OpenPosition> openPositionsList)
             throws IOException {
 
-        try {
-            String orderId = exchange.getTradeService()
-                    .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
-                            .originalAmount(originalAmount)
-                            .build());
+        boolean shouldBePlaced = true;
+        BigDecimal limitPrice = price;
+        if (instrument.getBase().getCurrencyCode().equals("BTC"))
+            limitPrice = limitPrice.setScale(0, RoundingMode.DOWN);
+        else if (instrument.getBase().getCurrencyCode().equals("MATIC")) {
+            limitPrice = limitPrice.setScale(4, RoundingMode.DOWN);
+        }
 
-            System.out.println("Placed Market Order " + bidType + "with order id :" + orderId);
+        shouldBePlaced = isAllowedTrade(bidType, openPositionsList, shouldBePlaced, limitPrice);
+
+        try {
+            if (shouldBePlaced) {
+                String orderId = exchange.getTradeService()
+                        .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                                .originalAmount(originalAmount)
+                                .build());
+
+                System.out.println("Placed Market Order " + bidType + "with order id :" + orderId);
+            }
 
         } catch (Exception e) {
             System.out.println("Inside Market Order Exception:" + e.getMessage());
@@ -271,7 +285,7 @@ public class KrakenFutureConfiguration {
         BigDecimal positionSize = BigDecimal.ZERO;
         if (openPositionsList.size() > 0) {
             positionSize = openPositionsList.get(0).getSize();
-        }else {
+        } else {
             positionSize = originalAmount;
         }
 

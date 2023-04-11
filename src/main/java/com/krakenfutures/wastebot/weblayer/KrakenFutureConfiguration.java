@@ -105,7 +105,7 @@ public class KrakenFutureConfiguration {
 
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
         // .setScale(krakenFuturesInstrument.getVolumeScale());
-        BigDecimal krakenSpotLastValue = krakenSpotTicker.getClose().getPrice();
+        BigDecimal krakenSpotLastValue = krakenSpotTicker.getAsk().getPrice();
         // .setScale(krakenFuturesInstrument.getVolumeScale());
         // originalAmount = orderValuesHelper.adjustAmount(originalAmount);
 
@@ -117,9 +117,9 @@ public class KrakenFutureConfiguration {
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
-            placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue, openPositionsList);
-            // placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
-            // openPositionsList);
+            // placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue, openPositionsList);
+            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
+            openPositionsList);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenFutureLastValue);
             placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
@@ -128,9 +128,9 @@ public class KrakenFutureConfiguration {
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue, openPositionsList);
-            // placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
-            // openPositionsList);
+            // placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue, openPositionsList);
+            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
+            openPositionsList);
             placeStopOrder(instrument, originalAmount, triggerOrderType,
                     krakenSpotLastValue);
             placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
@@ -252,9 +252,9 @@ public class KrakenFutureConfiguration {
             throws IOException {
         BigDecimal stopPrice;
         if (bidType.equals("BID")) {
-            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1/ 100.0)));
+            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5/ 100.0)));
         } else {
-            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1/ 100.0)));
+            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5/ 100.0)));
         }
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);

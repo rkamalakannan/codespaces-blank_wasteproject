@@ -65,23 +65,6 @@ public class KrakenFutureConfiguration {
     }
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
-
-        // KrakenAssetPairs krakenAssetPairs =
-        // krakenSpotConfiguration.getKrakenAssetPairs(instrument);
-
-        // int scaleLevel = krakenAssetPairs.getAssetPairMap()
-        // .get(instrument.getBase() +
-        // instrument.getCounter().getCurrencyCode()).getPairScale();
-        // // KrakenFuturesInstrument krakenFuturesInstrument =
-        // // marketDataService.getKrakenFuturesInstruments()
-        // // .getInstruments().stream().filter(arg0 ->
-        // // arg0.getSymbol().equals(instrument.getBase()))
-        // // .findAny().get();
-        // InstrumentMetaData metaData =
-        // exchange.getExchangeMetaData().getInstruments().get(instrument);
-
-        // BinanceFundingRate binancePrice =
-        // binanceFutureConfiguration.getBinanceFutureTicker();
         checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
 
@@ -97,44 +80,38 @@ public class KrakenFutureConfiguration {
                 triggerOrderType = "BID";
             }
         }
-
         checkOpenOrdersandCancelFirst(instrument);
-
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
         KrakenTicker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
-
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
-        // .setScale(krakenFuturesInstrument.getVolumeScale());
         BigDecimal krakenSpotLastValue = krakenSpotTicker.getAsk().getPrice();
-        // .setScale(krakenFuturesInstrument.getVolumeScale());
-        // originalAmount = orderValuesHelper.adjustAmount(originalAmount);
-
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
-        // System.out.println("Binance Future Last Value" +
-        // binancePrice.getMarkPrice().toString());
-
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
-            // placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
-            // openPositionsList);
-            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                     openPositionsList);
+            if (marketOrderId.isEmpty()) {
+                placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
+                        openPositionsList);
+            }
             placeStopOrder(instrument, originalAmount, triggerOrderType,
-                    krakenFutureLastValue);
+                    krakenFutureLastValue, openPositionsList);
             placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
                     openPositionPrice,
                     krakenSpotLastValue);
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            // placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
-            // openPositionsList);
-            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                     openPositionsList);
+            if (marketOrderId.isEmpty()) {
+                placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
+                        openPositionsList);
+            }
             placeStopOrder(instrument, originalAmount, triggerOrderType,
-                    krakenSpotLastValue);
+                    krakenSpotLastValue, openPositionsList);
             placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
                     openPositionPrice,
                     krakenSpotLastValue);
@@ -159,10 +136,11 @@ public class KrakenFutureConfiguration {
         }
     }
 
-    public void placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
+    public String placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
             List<OpenPosition> openPositionsList)
             throws IOException {
 
+        String orderId = "";
         boolean shouldBePlaced = true;
         BigDecimal limitPrice = price;
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
@@ -175,7 +153,7 @@ public class KrakenFutureConfiguration {
 
         try {
             if (shouldBePlaced) {
-                String orderId = exchange.getTradeService()
+                orderId = exchange.getTradeService()
                         .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .originalAmount(originalAmount)
                                 .build());
@@ -186,7 +164,7 @@ public class KrakenFutureConfiguration {
         } catch (Exception e) {
             System.out.println("Inside Market Order Exception:" + e.getMessage());
         }
-
+        return orderId;
     }
 
     /**
@@ -250,20 +228,36 @@ public class KrakenFutureConfiguration {
         return shouldBePlaced;
     }
 
-    public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price)
+    /**
+     * 
+     * @param instrument
+     * @param originalAmount
+     * @param bidType
+     * @param price
+     * @param openPositionsList
+     * @throws IOException
+     */
+
+    public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
+            List<OpenPosition> openPositionsList)
             throws IOException {
         BigDecimal stopPrice;
         if (bidType.equals("BID")) {
             stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
+            if (openPositionsList.get(0).getLiquidationPrice().compareTo(stopPrice) < 0) {
+                placeMarketOrder(instrument, originalAmount, bidType, stopPrice, openPositionsList);
+            }
         } else {
             stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
+            if (openPositionsList.get(0).getLiquidationPrice().compareTo(stopPrice) > 0) {
+                placeMarketOrder(instrument, originalAmount, bidType, stopPrice, openPositionsList);
+            }
         }
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
         else if (instrument.getBase().getCurrencyCode().equals("MATIC")) {
             stopPrice = stopPrice.setScale(4, RoundingMode.DOWN);
         }
-
         try {
             String orderId = exchange.getTradeService()
                     .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
@@ -342,16 +336,7 @@ public class KrakenFutureConfiguration {
 
     public void checkOpenOrdersandCancelFirst(Instrument instrument) throws IOException {
         OpenOrders openOrders = exchange.getTradeService().getOpenOrders();
-        // System.out.println(openOrders.getHiddenOrders());
-        // System.out.println(openOrders.getHiddenOrders().get(0).getInstrument());
-        // System.out.println(openOrders.getHiddenOrders().get(0).getId());
-        // System.out.println(openOrders.getHiddenOrders().get(0).hasFlag(KrakenFuturesOrderFlags.REDUCE_ONLY));
-
-        // exchange.getTradeService().cancelAllOrders(new
-        // DefaultCancelAllOrdersByInstrument(instrument));
-
         System.out.println("Inside Cancelling Orders");
-
         if (!openOrders.getHiddenOrders().isEmpty()) {
             System.out.println("Before Cancelling Trigger Order the count was:" + openOrders.getHiddenOrders().size());
             openOrders.getHiddenOrders().stream().forEach(arg0 -> {

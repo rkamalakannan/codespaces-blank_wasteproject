@@ -24,6 +24,7 @@ import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
+import org.knowm.xchange.kraken.dto.trade.KrakenOpenPosition;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOpenPosition;
@@ -243,15 +244,17 @@ public class KrakenFutureConfiguration {
             throws IOException {
         BigDecimal stopPrice;
         if (bidType.equals("BID")) {
+            if(openPositionsList.size() > 0) {
+                price =  openPositionsList.get(0).getPrice();
+                stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
+            }
             stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
-            if (openPositionsList.get(0).getLiquidationPrice().compareTo(stopPrice) < 0) {
-                placeMarketOrder(instrument, originalAmount, bidType, stopPrice, openPositionsList);
-            }
         } else {
-            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
-            if (openPositionsList.get(0).getLiquidationPrice().compareTo(stopPrice) > 0) {
-                placeMarketOrder(instrument, originalAmount, bidType, stopPrice, openPositionsList);
+            if(openPositionsList.size() > 0) {
+                price =  openPositionsList.get(0).getPrice();
+                stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
             }
+            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
         }
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
             stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);

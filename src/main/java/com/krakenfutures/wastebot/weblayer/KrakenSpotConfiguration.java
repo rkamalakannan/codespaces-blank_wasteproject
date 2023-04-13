@@ -33,7 +33,7 @@ public class KrakenSpotConfiguration {
         KrakenMarketDataServiceRaw marketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
                 .getMarketDataService();
 
-        return marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USDT"));
+        return marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"));
     }
 
     public KrakenAssetPairs getKrakenAssetPairs(Instrument instrument) throws IOException {

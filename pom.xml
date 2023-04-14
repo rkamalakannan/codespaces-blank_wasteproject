@@ -50,6 +50,11 @@
 			<artifactId>xchange-krakenfutures</artifactId>
 			<version>5.1.1-SNAPSHOT</version>
 		</dependency>
+        <dependency>
+			<groupId>org.knowm.xchange</groupId>
+			<artifactId>xchange-cryptowatch</artifactId>
+			<version>5.1.1-SNAPSHOT</version>
+		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.knowm.xchange/xchange-kraken -->
 		<dependency>
 			<groupId>org.knowm.xchange</groupId>

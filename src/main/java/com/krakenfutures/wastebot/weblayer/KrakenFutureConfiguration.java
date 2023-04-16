@@ -24,7 +24,6 @@ import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
-import org.knowm.xchange.kraken.dto.trade.KrakenOpenPosition;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOpenPosition;

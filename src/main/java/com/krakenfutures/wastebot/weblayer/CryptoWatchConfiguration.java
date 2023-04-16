@@ -4,13 +4,8 @@ import java.io.IOException;
 
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
-import org.knowm.xchange.cryptowatch.Cryptowatch;
 import org.knowm.xchange.cryptowatch.CryptowatchExchange;
-import org.knowm.xchange.cryptowatch.dto.marketdata.CryptowatchPrice;
-import org.knowm.xchange.cryptowatch.dto.marketdata.CryptowatchPriceChange;
 import org.knowm.xchange.cryptowatch.dto.marketdata.CryptowatchSummary;
-import org.knowm.xchange.cryptowatch.dto.marketdata.CryptowatchSummaryPrice;
-import org.knowm.xchange.cryptowatch.service.CryptowatchMarketDataService;
 import org.knowm.xchange.cryptowatch.service.CryptowatchMarketDataServiceRaw;
 import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.instrument.Instrument;

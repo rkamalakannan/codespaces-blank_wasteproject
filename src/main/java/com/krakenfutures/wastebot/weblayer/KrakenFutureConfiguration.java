@@ -66,19 +66,64 @@ public class KrakenFutureConfiguration {
         return marketDataService.getKrakenFuturesTicker(instrument);
     }
 
-    // public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
-    //     System.out.println("future"+cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getChange());
-    //     System.out.println("spot"+cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange());
-    //     System.out.println("future price last"+cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast());
-    //     System.out.println("spot price last "+cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
-
-
-
+    // public void placeOrder(Instrument instrument, BigDecimal originalAmount)
+    // throws IOException {
+    // System.out
+    // .println("future" +
+    // cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getChange());
+    // System.out.println("spot" +
+    // cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange());
+    // System.out.println(
+    // "future price last" +
+    // cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast());
+    // System.out.println(
+    // "spot price last " +
+    // cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
+    // BigDecimal priceDifference =
+    // cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
+    // .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+    // .getChange().getAbsolute());
+    // BigDecimal predictedPrice =
+    // cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast()
+    // .plus().add(priceDifference);
+    // System.out.println("predictedfuture" + predictedPrice);
+    // System.out.println("pricedfference" + priceDifference);
     // }
 
+    public BigDecimal getProfitLimitPrice(Instrument instrument, BigDecimal originalAmount) throws IOException {
+
+        BigDecimal predictedPrice;
+
+        // System.out
+        //         .println("future" + cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getChange());
+        // System.out.println("spot" + cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange());
+        // System.out.println(
+        //         "future price last" + cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast());
+        // System.out.println(
+        //         "spot price last " + cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
+        BigDecimal futureBigDecimalPercentage = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+                .getChange().getPercentage();
+        BigDecimal spotBigDecimalPercentage = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
+                .getChange().getPercentage();
+        BigDecimal priceDifference;
+        priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
+                .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+                        .getChange().getAbsolute());
+
+        if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
+            predictedPrice = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast()
+                    .subtract(priceDifference);
+        } else {
+            predictedPrice = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast()
+                    .plus().add(priceDifference);
+        }
+        System.out.println("predictedfuture" + predictedPrice);
+        System.out.println("pricedfference" + priceDifference);
+        return predictedPrice;
+    }
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
-        checkAccount();
+        // checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
 
         String triggerOrderType = "";
@@ -98,8 +143,10 @@ public class KrakenFutureConfiguration {
         KrakenTicker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
         BigDecimal krakenSpotLastValue = krakenSpotTicker.getAsk().getPrice();
-        BigDecimal cryptoWatchKrakenFutureLastValue = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast();
-        BigDecimal cryptoWatchKrakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
+        BigDecimal cryptoWatchKrakenFutureLastValue = cryptoWatchConfiguration.getFuturesPriceChange(instrument)
+                .getPrice().getLast();
+        BigDecimal cryptoWatchKrakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
+                .getLast();
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
@@ -144,6 +191,7 @@ public class KrakenFutureConfiguration {
     private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount,
             List<OpenPosition> openPositionsList,
             String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue) throws IOException {
+        krakenSpotLastValue = getProfitLimitPrice(instrument, originalAmount);
         if (openPositionsList.size() > 0) {
             if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
                     && openPositionsList.get(0).getType().equals(OpenPosition.Type.LONG))
@@ -264,14 +312,14 @@ public class KrakenFutureConfiguration {
             throws IOException {
         BigDecimal stopPrice;
         if (bidType.equals("BID")) {
-            if(openPositionsList.size() > 0) {
-                price =  openPositionsList.get(0).getPrice();
+            if (openPositionsList.size() > 0) {
+                price = openPositionsList.get(0).getPrice();
                 stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
             }
             stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
         } else {
-            if(openPositionsList.size() > 0) {
-                price =  openPositionsList.get(0).getPrice();
+            if (openPositionsList.size() > 0) {
+                price = openPositionsList.get(0).getPrice();
                 stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
             }
             stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
@@ -302,6 +350,8 @@ public class KrakenFutureConfiguration {
             List<OpenPosition> openPositionsList)
             throws IOException {
 
+        System.out.println("Inside Profit Order");
+
         boolean shouldBePlaced = true;
 
         BigDecimal positionSize = BigDecimal.ZERO;
@@ -324,10 +374,9 @@ public class KrakenFutureConfiguration {
                         .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .intention(StopOrder.Intention.TAKE_PROFIT)
                                 .stopPrice(stopPrice)
-                                .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
+                                .flag(KrakenFuturesOrderFlags.POST_ONLY)
                                 .originalAmount(positionSize)
                                 .build());
-
                 System.out.println(
                         "Placed Take Profit" + bidType + "for value" + stopPrice + "with order id :" + orderId);
             }
@@ -344,7 +393,8 @@ public class KrakenFutureConfiguration {
         if (!openOrders.isEmpty()) {
             exchange.getTradeService().cancelOrder(openOrders.get(0).getId());
         }
-        // exchange.getTradeService().cancelAllOrders(new DefaultCancelAllOrdersByInstrument(instrument));
+        // exchange.getTradeService().cancelAllOrders(new
+        // DefaultCancelAllOrdersByInstrument(instrument));
 
     }
 

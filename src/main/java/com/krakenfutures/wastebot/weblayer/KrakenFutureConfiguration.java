@@ -143,18 +143,14 @@ public class KrakenFutureConfiguration {
         KrakenTicker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
         BigDecimal krakenSpotLastValue = krakenSpotTicker.getAsk().getPrice();
-        BigDecimal cryptoWatchKrakenFutureLastValue = cryptoWatchConfiguration.getFuturesPriceChange(instrument)
+        cryptoWatchConfiguration.getFuturesPriceChange(instrument)
                 .getPrice().getLast();
-        BigDecimal cryptoWatchKrakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
+        cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
                 .getLast();
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
-        System.out.println("cryptowatchkrakenFutureLastValue" + cryptoWatchKrakenFutureLastValue.toString());
-        System.out.println("crptowatchkrakenSpotLastValue" + cryptoWatchKrakenSpotLastValue.toString());
-
-        krakenFutureLastValue = cryptoWatchKrakenFutureLastValue;
-        krakenSpotLastValue = cryptoWatchKrakenSpotLastValue;
+        
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";

@@ -310,9 +310,9 @@ public class KrakenFutureConfiguration {
         if (bidType.equals("BID")) {
             if (openPositionsList.size() > 0) {
                 price = openPositionsList.get(0).getPrice();
-                stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
+                stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.2 / 100.0)));
             }
-            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
+            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.2 / 100.0)));
         } else {
             if (openPositionsList.size() > 0) {
                 price = openPositionsList.get(0).getPrice();

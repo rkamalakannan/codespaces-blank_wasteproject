@@ -22,7 +22,7 @@ public class CryptoWatchConfiguration {
 
     public CryptowatchSummary getFuturesPriceChange(Instrument instrument) throws IOException {
         CryptowatchMarketDataServiceRaw marketDataService = (CryptowatchMarketDataServiceRaw) cryptoExchange.getMarketDataService();
-        return marketDataService.getCryptowatchSummary(new CurrencyPair("", "btcusd-perpetual-future-inverse"), "kraken-futures");
+        return marketDataService.getCryptowatchSummary(new CurrencyPair("", instrument.getBase().getCurrencyCode()+"usd-perpetual-future-multi"), "kraken-futures");
     }
 
     public CryptowatchSummary getSpotPriceChange(Instrument instrument) throws IOException {

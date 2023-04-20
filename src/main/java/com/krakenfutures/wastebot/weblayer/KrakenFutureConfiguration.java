@@ -339,6 +339,7 @@ public class KrakenFutureConfiguration {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
                     stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                    originalAmount = openPosition.getSize();
                 }
                 stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
             }

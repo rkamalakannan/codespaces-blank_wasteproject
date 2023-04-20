@@ -348,7 +348,7 @@ public class KrakenFutureConfiguration {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
-                    stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1/ 100.0)));
+                    stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
                 }
                 stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
 
@@ -416,17 +416,19 @@ public class KrakenFutureConfiguration {
 
     }
 
-    private BigDecimal priceDecimalPrecision(Instrument instrument, BigDecimal stopPrice) {
+    private BigDecimal priceDecimalPrecision(Instrument instrument, BigDecimal price) {
         if (instrument.getBase().getCurrencyCode().equals("BTC"))
-            stopPrice = stopPrice.setScale(0, RoundingMode.DOWN);
+            price = price.setScale(0, RoundingMode.DOWN);
         else if (instrument.getBase().getCurrencyCode().equals("MATIC")) {
-            stopPrice = stopPrice.setScale(4, RoundingMode.DOWN);
+            price = price.setScale(4, RoundingMode.DOWN);
         } else if (instrument.getBase().getCurrencyCode().equals("BCH")) {
-            stopPrice = stopPrice.setScale(2, RoundingMode.DOWN);
+            price = price.setScale(2, RoundingMode.DOWN);
         } else if (instrument.getBase().getCurrencyCode().equals("LTC")) {
-            stopPrice = stopPrice.setScale(2, RoundingMode.DOWN);
+            price = price.setScale(2, RoundingMode.DOWN);
+        } else if (instrument.getBase().getCurrencyCode().equals("KSM")) {
+            price = price.setScale(2, RoundingMode.DOWN);
         }
-        return stopPrice;
+        return price;
     }
 
     public void cancelTopFirstOrder(Instrument instrument) throws IOException {

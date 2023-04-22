@@ -18,7 +18,7 @@ public class BinanceFutureConfiguration {
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(BinanceUsExchange.class);
         spec.setHost(BinanceUsExchange.FUTURES_URL);
-        return ExchangeFactory.INSTANCE.createExchange(spec);
+        return ExchangeFactory.INSTANCE.createExchange(spec); //test
     }
 
     private Exchange binanceFutureExchange = createExchange();

@@ -20,6 +20,14 @@
     <checkstyle.config.location>./checkstyle.xml</checkstyle.config.location>
   </properties>
 
+  	<repositories>
+		<repository>
+			<id>sonatype-oss-snapshot</id>
+			<snapshots />
+			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+		</repository>
+	</repositories>
+
   <build>
     <plugins>
       <plugin>
@@ -36,6 +44,18 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>3.2.1</version>
       </plugin>
+      <plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
     </plugins>
   </build>
 
@@ -53,6 +73,49 @@
   </dependencyManagement>
 	
   <dependencies>
+  <dependency>
+			<groupId>javax.ws.rs</groupId>
+			<artifactId>javax.ws.rs-api</artifactId>
+			<version>2.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.knowm.xchange</groupId>
+			<artifactId>xchange-cryptowatch</artifactId>
+			<version>5.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.knowm.xchange</groupId>
+			<artifactId>xchange-krakenfutures</artifactId>
+			<version>5.1.1-SNAPSHOT</version>
+		</dependency>
+    
+		<!-- https://mvnrepository.com/artifact/org.knowm.xchange/xchange-kraken -->
+		<dependency>
+			<groupId>org.knowm.xchange</groupId>
+			<artifactId>xchange-kraken</artifactId>
+			<version>5.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.knowm.xchange</groupId>
+			<artifactId>xchange-binance</artifactId>
+			<version>5.1.0</version>
+		</dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>

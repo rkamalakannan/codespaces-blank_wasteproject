@@ -1,5 +1,5 @@
 
-package cloudcode.helloworld.web;
+package cloudcode.krakenfutures.web;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

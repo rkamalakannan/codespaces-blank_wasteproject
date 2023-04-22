@@ -8,13 +8,18 @@ package cloudcode.krakenfutures.weblayer;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
+import org.knowm.xchange.binance.dto.trade.OrderStatus;
 import org.knowm.xchange.dto.Order;
+import org.knowm.xchange.dto.Order.IOrderFlags;
+import org.knowm.xchange.dto.Order.OrderType;
 import org.knowm.xchange.dto.account.AccountInfo;
 import org.knowm.xchange.dto.account.OpenPosition;
 import org.knowm.xchange.dto.account.Wallet;
@@ -25,6 +30,7 @@ import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
+import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesOrder;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOpenPosition;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
@@ -104,8 +110,8 @@ public class KrakenFutureConfiguration {
                         .getChange().getAbsolute());
 
         System.out
-                .println("future" + futureBigDecimalPercentage);
-        System.out.println("spot" + spotBigDecimalPercentage);
+                .println("future percentage" + futureBigDecimalPercentage);
+        System.out.println("spot percentage" + spotBigDecimalPercentage);
 
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
@@ -192,7 +198,7 @@ public class KrakenFutureConfiguration {
                     openPositionPrice,
                     profitLimitPricePredicted);
         } else {
-            // do nothing
+            System.out.println("Initial Condition Failed!!");
         }
     }
 
@@ -238,6 +244,7 @@ public class KrakenFutureConfiguration {
             if (shouldBePlaced) {
                 orderId = exchange.getTradeService()
                         .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                                .flag(KrakenFuturesOrderFlags.POST_ONLY)
                                 .originalAmount(originalAmount)
                                 .build());
 
@@ -277,9 +284,13 @@ public class KrakenFutureConfiguration {
         try {
 
             if (shouldBePlaced) {
+                Set<Order.IOrderFlags> orderFlags = new HashSet<>();
+                orderFlags.add(KrakenFuturesOrderFlags.POST_ONLY);
+
                 String orderId = exchange.getTradeService()
                         .placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .limitPrice(limitPrice)
+                                .flags(orderFlags)
                                 .originalAmount(originalAmount)
                                 .build());
                 System.out
@@ -359,13 +370,19 @@ public class KrakenFutureConfiguration {
         stopPrice = priceDecimalPrecision(instrument, stopPrice);
 
         try {
+            Set<Order.IOrderFlags> orderFlags = new HashSet<>();
+            orderFlags.add(KrakenFuturesOrderFlags.REDUCE_ONLY);
+            orderFlags.add(KrakenFuturesOrderFlags.POST_ONLY);
             String orderId = exchange.getTradeService()
                     .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                             .intention(StopOrder.Intention.STOP_LOSS)
+                            .limitPrice(stopPrice)
                             .stopPrice(stopPrice)
-                            .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
+                            .flags(orderFlags)
                             .originalAmount(originalAmount)
                             .build());
+
+    
 
             System.out.println("Placed Stop Loss" + bidType + "for value" + stopPrice + "with order id :" + orderId);
 
@@ -404,6 +421,7 @@ public class KrakenFutureConfiguration {
                 String orderId = exchange.getTradeService()
                         .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .intention(StopOrder.Intention.TAKE_PROFIT)
+                                .limitPrice(stopPrice)
                                 .stopPrice(stopPrice)
                                 .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
                                 .originalAmount(positionSize)
@@ -431,6 +449,8 @@ public class KrakenFutureConfiguration {
             price = price.setScale(2, RoundingMode.DOWN);
         } else if (instrument.getBase().getCurrencyCode().equals("GMT")) {
             price = price.setScale(4, RoundingMode.DOWN);
+        } else if (instrument.getBase().getCurrencyCode().equals("APE")) {
+            price = price.setScale(3, RoundingMode.DOWN);
         }
         return price;
     }
@@ -441,9 +461,6 @@ public class KrakenFutureConfiguration {
         if (!openOrders.isEmpty()) {
             exchange.getTradeService().cancelOrder(openOrders.get(0).getId());
         }
-        // exchange.getTradeService().cancelAllOrders(new
-        // DefaultCancelAllOrdersByInstrument(instrument));
-
     }
 
     public void checkAccount() throws IOException {
@@ -458,9 +475,9 @@ public class KrakenFutureConfiguration {
     public void checkOpenOrdersandCancelFirst(Instrument instrument) throws IOException {
         OpenOrders openOrders = exchange.getTradeService().getOpenOrders();
         System.out.println("Inside Cancelling Orders");
-        if (!openOrders.getHiddenOrders().isEmpty()) {
-            System.out.println("Before Cancelling Trigger Order the count was:" + openOrders.getHiddenOrders().size());
-            openOrders.getHiddenOrders().stream()
+        if (!openOrders.getAllOpenOrders().isEmpty()) {
+            System.out.println("Before Cancelling Trigger Order the count was:" + openOrders.getAllOpenOrders().size());
+            openOrders.getAllOpenOrders().stream()
                     .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
                             .contains(instrument.getBase().getCurrencyCode()))
                     .forEach(arg0 -> {
@@ -474,11 +491,6 @@ public class KrakenFutureConfiguration {
                         }
                     });
         }
-
-        OpenOrders postOpenOrders = exchange.getTradeService().getOpenOrders();
-
-        System.out.println("After Cancelling Trigger Order the count is:" + postOpenOrders.getHiddenOrders().size());
-
     }
 
     public List<OpenPosition> getPositions() throws IOException {

@@ -10,15 +10,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Here, we check to ensure all required environment variables are set
  */
 @SpringBootApplication
-public class HelloWorldApplication {
+public class CloudRunBotApplication {
 
-    private static final Logger logger = LoggerFactory.getLogger(HelloWorldApplication.class);
+    private static final Logger logger = LoggerFactory.getLogger(CloudRunBotApplication.class);
 
     public static void main(final String[] args) throws Exception {
         String port = System.getenv("PORT");
         if (port == null) {
             logger.warn("$PORT environment variable not set");
         }
-        SpringApplication.run(HelloWorldApplication.class, args);
+        SpringApplication.run(CloudRunBotApplication.class, args);
     }
 }

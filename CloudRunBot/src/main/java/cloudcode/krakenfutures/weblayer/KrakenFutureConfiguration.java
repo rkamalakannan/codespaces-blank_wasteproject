@@ -387,9 +387,11 @@ public class KrakenFutureConfiguration {
         if (openPositionsList.size() > 0) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                     .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny().orElse(null);
-            if (!openPosition.equals(null))
+            if (!openPosition.equals(null)) {
                 positionSize = openPosition.getSize();
-            positionSize = originalAmount;
+            } else {
+                positionSize = originalAmount;
+            }
         } else {
             positionSize = originalAmount;
         }
@@ -427,8 +429,7 @@ public class KrakenFutureConfiguration {
             price = price.setScale(2, RoundingMode.DOWN);
         } else if (instrument.getBase().getCurrencyCode().equals("KSM")) {
             price = price.setScale(2, RoundingMode.DOWN);
-        }
-        else if (instrument.getBase().getCurrencyCode().equals("GMT")) {
+        } else if (instrument.getBase().getCurrencyCode().equals("GMT")) {
             price = price.setScale(4, RoundingMode.DOWN);
         }
         return price;

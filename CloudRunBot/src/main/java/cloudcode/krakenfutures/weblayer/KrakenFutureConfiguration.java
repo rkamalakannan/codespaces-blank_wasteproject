@@ -178,11 +178,8 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
-            placeStopOrder(instrument, originalAmount, triggerOrderType,
-                    krakenFutureLastValue, openPositionsList);
-            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
-                    openPositionPrice,
-                    profitLimitPricePredicted);
+            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+                    krakenFutureLastValue, profitLimitPricePredicted);
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
@@ -192,14 +189,21 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
-            placeStopOrder(instrument, originalAmount, triggerOrderType,
-                    krakenSpotLastValue, openPositionsList);
-            placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
-                    openPositionPrice,
-                    profitLimitPricePredicted);
+            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+                    krakenSpotLastValue, profitLimitPricePredicted);
         } else {
             System.out.println("Initial Condition Failed!!");
         }
+    }
+
+    private void triggerOrders(Instrument instrument, BigDecimal originalAmount, List<OpenPosition> openPositionsList,
+            String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue,
+            BigDecimal profitLimitPricePredicted) throws IOException {
+        placeStopOrder(instrument, originalAmount, triggerOrderType,
+                krakenSpotLastValue, openPositionsList);
+        placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
+                openPositionPrice,
+                profitLimitPricePredicted);
     }
 
     private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount,
@@ -248,7 +252,8 @@ public class KrakenFutureConfiguration {
                                 .originalAmount(originalAmount)
                                 .build());
 
-                System.out.println("Placed Market Order " + bidType + "with order id :" + orderId);
+                System.out.println("Placed Market Order for instrument" + instrument.getName() + bidType
+                        + "with order id :" + orderId);
             }
 
         } catch (Exception e) {
@@ -271,7 +276,8 @@ public class KrakenFutureConfiguration {
      *                     ASK cannot be lesser than the open position price
      */
 
-    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
+    public void placeLimitOrder(javax.sound.midi.Instrument instrument, BigDecimal originalAmount, String bidType,
+            BigDecimal price,
             List<OpenPosition> openPositionsList)
             throws IOException {
 
@@ -293,8 +299,10 @@ public class KrakenFutureConfiguration {
                                 .flags(orderFlags)
                                 .originalAmount(originalAmount)
                                 .build());
+
                 System.out
-                        .println("Placed Limit Order " + bidType + "for value" + limitPrice + "with order id :"
+                        .println("Placed Limit Order for instrument" + instrument.getName() + bidType + "for value"
+                                + limitPrice + "with order id :"
                                 + orderId);
             }
 
@@ -382,9 +390,8 @@ public class KrakenFutureConfiguration {
                             .originalAmount(originalAmount)
                             .build());
 
-    
-
-            System.out.println("Placed Stop Loss" + bidType + "for value" + stopPrice + "with order id :" + orderId);
+            System.out.println("Placed Stop Loss instrument" + instrument.getName() + bidType + "for value" + stopPrice
+                    + "with order id :" + orderId);
 
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -427,7 +434,8 @@ public class KrakenFutureConfiguration {
                                 .originalAmount(positionSize)
                                 .build());
                 System.out.println(
-                        "Placed Take Profit" + bidType + "for value" + stopPrice + "with order id :" + orderId);
+                        "Placed Take Profit instrument" + instrument.getName() + bidType + "for value" + stopPrice
+                                + "with order id :" + orderId);
             }
 
         } catch (Exception e) {
@@ -450,6 +458,12 @@ public class KrakenFutureConfiguration {
         } else if (instrument.getBase().getCurrencyCode().equals("GMT")) {
             price = price.setScale(4, RoundingMode.DOWN);
         } else if (instrument.getBase().getCurrencyCode().equals("APE")) {
+            price = price.setScale(3, RoundingMode.DOWN);
+        }
+        else if (instrument.getBase().getCurrencyCode().equals("ETH")) {
+            price = price.setScale(2, RoundingMode.DOWN);
+        }
+        else if (instrument.getBase().getCurrencyCode().equals("ATOM")) {
             price = price.setScale(3, RoundingMode.DOWN);
         }
         return price;

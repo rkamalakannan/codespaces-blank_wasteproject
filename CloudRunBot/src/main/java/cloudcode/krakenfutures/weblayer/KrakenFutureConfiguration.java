@@ -98,23 +98,11 @@ public class KrakenFutureConfiguration {
                 .getChange().getPercentage();
         BigDecimal spotBigDecimalPercentage = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
                 .getChange().getPercentage();
-        BigDecimal priceDifference;
-        priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
+        BigDecimal priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
                 .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
                         .getChange().getAbsolute());
 
-        System.out
-                .println("future percentage" + futureBigDecimalPercentage);
-        System.out.println("spot percentage" + spotBigDecimalPercentage);
-
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
-        BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
-
-        System.out.println(
-                "future price last" + krakenFutureLastValue);
-        System.out.println(
-                "spot price last " + cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
-
         if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
             if (priceDifference.compareTo(BigDecimal.ZERO) > 0)
                 predictedPrice = krakenFutureTicker.getMarkPrice().subtract(priceDifference);
@@ -153,11 +141,9 @@ public class KrakenFutureConfiguration {
             }
         }
         checkOpenOrdersandCancelFirst(instrument);
-        KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
-        KrakenTicker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
-        BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
-        BigDecimal krakenSpotLastValue = krakenSpotTicker.getAsk().getPrice();
-
+        BigDecimal krakenFutureLastValue = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+                .getLast();
+        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
 
@@ -166,7 +152,8 @@ public class KrakenFutureConfiguration {
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
+                    krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
@@ -177,7 +164,8 @@ public class KrakenFutureConfiguration {
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
+                    krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
                 placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
@@ -319,7 +307,6 @@ public class KrakenFutureConfiguration {
             if (openPosition != null) {
                 openPositionPrice = openPosition.getPrice();
                 String type = openPosition.getType().name();
-
                 if (limitPrice.compareTo(openPositionPrice) > 0
                         && type.equals("SHORT")
                         && bidType.equals("BID")) {

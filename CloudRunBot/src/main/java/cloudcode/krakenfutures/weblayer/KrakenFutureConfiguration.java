@@ -276,7 +276,7 @@ public class KrakenFutureConfiguration {
      *                     ASK cannot be lesser than the open position price
      */
 
-    public void placeLimitOrder(javax.sound.midi.Instrument instrument, BigDecimal originalAmount, String bidType,
+    public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType,
             BigDecimal price,
             List<OpenPosition> openPositionsList)
             throws IOException {

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+import cloudcode.krakenfutures.strategy.AveragePricingStragegy;
 import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
 
 
@@ -29,11 +30,24 @@ public class BotController {
     @Autowired
     KrakenFutureConfiguration krakenConfiguration;
 
+    @Autowired
+    AveragePricingStragegy averagePricingStragegy;
+
     @GetMapping("/v1/execute/{asset}/{originalAmount}")
     public void executeInstrument(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
             throws IOException {
         Instrument instrument = new CurrencyPair(asset, "USD");
         krakenConfiguration.placeOrder(instrument, originalAmount);
+
+    }
+
+
+    @GetMapping("/v2/execute/{asset}/{originalAmount}")
+    public void findAveragePrice(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
+            throws IOException {
+        Instrument instrument = new CurrencyPair(asset, "USD");
+        double value = averagePricingStragegy.findAveragePrice(instrument, originalAmount);
+        System.out.println(value);
 
     }
 

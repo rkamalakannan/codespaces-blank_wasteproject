@@ -6,13 +6,17 @@
 package cloudcode.krakenfutures.weblayer;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.KrakenExchange;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenAssetPairs;
+import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
+import org.knowm.xchange.kraken.service.KrakenMarketDataService;
 import org.knowm.xchange.kraken.service.KrakenMarketDataServiceRaw;
 import org.springframework.stereotype.Component;
 
@@ -36,12 +40,14 @@ public class KrakenSpotConfiguration {
         return marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"));
     }
 
-    public KrakenAssetPairs getKrakenAssetPairs(Instrument instrument) throws IOException {
-        KrakenMarketDataServiceRaw krakenMarketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
-                .getMarketDataService();
-
-        KrakenAssetPairs krakenAssetPairs = krakenMarketDataService.getKrakenAssetPairs();
-        
-        return krakenAssetPairs;
-    }
+    public KrakenOHLCs getKrakenOHLCs(Instrument instrument) throws IOException {
+        KrakenExchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
+        KrakenMarketDataService krakenMarketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
+        LocalDateTime time = LocalDateTime.now().minusHours(8);
+        ZoneId zoneId = ZoneId.systemDefault();
+        long epoch = time.atZone(zoneId).toEpochSecond();
+        KrakenOHLCs krakenOHLCs =  krakenMarketDataService.getKrakenOHLC(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"), 15, epoch);
+        System.out.println(krakenOHLCs.toString());
+        return krakenOHLCs;
+      }
 }

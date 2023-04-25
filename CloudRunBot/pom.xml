@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>hello-world</artifactId>
@@ -20,13 +21,13 @@
     <checkstyle.config.location>./checkstyle.xml</checkstyle.config.location>
   </properties>
 
-  	<repositories>
-		<repository>
-			<id>sonatype-oss-snapshot</id>
-			<snapshots />
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</repository>
-	</repositories>
+  <repositories>
+    <repository>
+      <id>sonatype-oss-snapshot</id>
+      <snapshots />
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </repository>
+  </repositories>
 
   <build>
     <plugins>
@@ -45,17 +46,17 @@
         <version>3.2.1</version>
       </plugin>
       <plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </exclude>
+          </excludes>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 
@@ -71,51 +72,51 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
-	
+
   <dependencies>
-  <dependency>
-			<groupId>javax.ws.rs</groupId>
-			<artifactId>javax.ws.rs-api</artifactId>
-			<version>2.1</version>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
+    <dependency>
+      <groupId>javax.ws.rs</groupId>
+      <artifactId>javax.ws.rs-api</artifactId>
+      <version>2.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
 
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
 
-		<dependency>
-			<groupId>org.knowm.xchange</groupId>
-			<artifactId>xchange-cryptowatch</artifactId>
-			<version>5.1.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.knowm.xchange</groupId>
-			<artifactId>xchange-krakenfutures</artifactId>
-			<version>5.1.1-SNAPSHOT</version>
-		</dependency>
-    
-		<!-- https://mvnrepository.com/artifact/org.knowm.xchange/xchange-kraken -->
-		<dependency>
-			<groupId>org.knowm.xchange</groupId>
-			<artifactId>xchange-kraken</artifactId>
-			<version>5.1.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.knowm.xchange</groupId>
-			<artifactId>xchange-binance</artifactId>
-			<version>5.1.0</version>
-		</dependency>
+    <dependency>
+      <groupId>org.knowm.xchange</groupId>
+      <artifactId>xchange-cryptowatch</artifactId>
+      <version>5.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.knowm.xchange</groupId>
+      <artifactId>xchange-krakenfutures</artifactId>
+      <version>5.1.1-SNAPSHOT</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.knowm.xchange/xchange-kraken -->
+    <dependency>
+      <groupId>org.knowm.xchange</groupId>
+      <artifactId>xchange-kraken</artifactId>
+      <version>5.1.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.knowm.xchange</groupId>
+      <artifactId>xchange-binance</artifactId>
+      <version>5.1.0</version>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -147,7 +148,13 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-gcp-starter-logging</artifactId>
     </dependency>
-		
+
+    <dependency>
+      <groupId>org.ta4j</groupId>
+      <artifactId>ta4j-core</artifactId>
+      <version>0.15</version>
+    </dependency>
+
   </dependencies>
 
 </project>

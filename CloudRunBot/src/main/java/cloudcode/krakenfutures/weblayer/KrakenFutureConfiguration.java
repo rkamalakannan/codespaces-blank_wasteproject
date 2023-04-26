@@ -141,9 +141,8 @@ public class KrakenFutureConfiguration {
             }
         }
         checkOpenOrdersandCancelFirst(instrument);
-        BigDecimal krakenFutureLastValue = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
-                .getLast();
-        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
+        BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
+        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getBid().getPrice();
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
 
@@ -365,7 +364,6 @@ public class KrakenFutureConfiguration {
         try {
             Set<Order.IOrderFlags> orderFlags = new HashSet<>();
             orderFlags.add(KrakenFuturesOrderFlags.REDUCE_ONLY);
-            orderFlags.add(KrakenFuturesOrderFlags.POST_ONLY);
             String orderId = exchange.getTradeService()
                     .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                             .intention(StopOrder.Intention.STOP_LOSS)

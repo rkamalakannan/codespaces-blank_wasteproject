@@ -152,8 +152,7 @@ public class KrakenFutureConfiguration {
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
-            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
-                    krakenFutureLastValue, profitLimitPricePredicted);
+
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
                     krakenFutureLastValue,
                     openPositionsList);
@@ -161,12 +160,13 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
+            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+                    krakenFutureLastValue, profitLimitPricePredicted);
 
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
-                    krakenSpotLastValue, profitLimitPricePredicted);
+
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
                     krakenFutureLastValue,
                     openPositionsList);
@@ -174,6 +174,8 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
+            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+                    krakenSpotLastValue, profitLimitPricePredicted);
         } else {
             System.out.println("Initial Condition Failed!!");
         }

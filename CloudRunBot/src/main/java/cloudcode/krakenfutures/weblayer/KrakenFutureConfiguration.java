@@ -345,22 +345,22 @@ public class KrakenFutureConfiguration {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
-                    stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                    stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
                     originalAmount = openPosition.getSize();
                 }
-                stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
             }
-            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
         } else {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
-                    stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                    stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
                 }
-                stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
 
             }
-            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.5 / 100.0)));
         }
 
         stopPrice = priceDecimalPrecision(instrument, stopPrice);

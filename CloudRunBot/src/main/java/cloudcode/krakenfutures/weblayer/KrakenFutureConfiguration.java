@@ -106,9 +106,12 @@ public class KrakenFutureConfiguration {
 
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
         if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
-            if (priceDifference.compareTo(BigDecimal.ZERO) > 0)
+            if (priceDifference.compareTo(BigDecimal.ZERO) > 0) {
                 predictedPrice = krakenFutureTicker.getMarkPrice().subtract(priceDifference);
+            }
+            else{
             predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
+        }
         } else {
             predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
         }
@@ -122,7 +125,6 @@ public class KrakenFutureConfiguration {
         checkOpenOrdersandCancelFirst(instrument);
 
         List<OpenPosition> openPositionsList = getPositions();
-
         String triggerOrderType = "";
 
         BigDecimal openPositionPrice = BigDecimal.ZERO;

@@ -7,7 +7,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLC;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
@@ -17,11 +16,14 @@ import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.TypicalPriceIndicator;
+import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
+import org.ta4j.core.AnalysisCriterion;
 import org.ta4j.core.AnalysisCriterion.PositionFilter;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.BaseBar;
 import org.ta4j.core.BaseBarSeriesBuilder;
 import org.ta4j.core.BaseStrategy;
+import org.ta4j.core.Indicator;
 import org.ta4j.core.BarSeriesManager;
 import org.ta4j.core.Rule;
 import org.ta4j.core.Strategy;
@@ -33,25 +35,31 @@ import org.ta4j.core.criteria.MaximumDrawdownCriterion;
 import org.ta4j.core.criteria.NumberOfBarsCriterion;
 import org.ta4j.core.criteria.NumberOfPositionsCriterion;
 import org.ta4j.core.criteria.NumberOfWinningPositionsCriterion;
+import org.ta4j.core.criteria.PositionsRatioCriterion;
 import org.ta4j.core.criteria.ReturnOverMaxDrawdownCriterion;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.criteria.VersusEnterAndHoldCriterion;
+import org.ta4j.core.criteria.pnl.ProfitCriterion;
+import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
+import org.ta4j.core.criteria.pnl.ReturnCriterion;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
+import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
 import cloudcode.krakenfutures.weblayer.KrakenSpotConfiguration;
 
 @Component
 public class AveragePricingStragegy {
 
-
     @Autowired
     KrakenSpotConfiguration krakenSpotConfiguration;
-    
+
+    @Autowired
+    KrakenFutureConfiguration krakenFutureConfiguration;
+
     public KrakenOHLCs getOhlc5m(Instrument instrument) throws IOException {
-        
+
         return krakenSpotConfiguration.getKrakenOHLCs(instrument);
-        
+
     }
 
     public BarSeries createBarSeries(Instrument instrument) {
@@ -62,7 +70,7 @@ public class AveragePricingStragegy {
             KrakenOHLCs krakenOHLCs = getOhlc5m(instrument);
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
                 BaseBar bar = new BaseBar(
-                        Duration.ofMinutes(15),
+                        Duration.ofMinutes(1),
                         ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()),
                                 ZoneId.systemDefault()),
                         krakenOHLC.getOpen(),
@@ -79,19 +87,30 @@ public class AveragePricingStragegy {
         return series;
     }
 
-    public double findAveragePrice(Instrument instrument, BigDecimal originalAmount) {
+    // public double findAveragePrice(Instrument instrument, BigDecimal
+    // originalAmount) throws IOException {
+    // BarSeries series = createBarSeries(instrument);
+    // BarSeries lastBarSeries = new
+    // BaseBarSeriesBuilder().withName("lastBarSeries").build();
+    // lastBarSeries.addBar(series.getLastBar());
+    // System.out.println("LastBarSeriers"+lastBarSeries.getBarData().toString());
+    // TypicalPriceIndicator typicalPriceIndicator = new
+    // TypicalPriceIndicator(lastBarSeries);
+    // RSIIndicator rsiIndicator = new RSIIndicator(typicalPriceIndicator, 30);
+    // System.out.println(rsiIndicator.getValue(0).doubleValue());
+    // backTesting(instrument);
+    // return typicalPriceIndicator.getValue(0).doubleValue();
+    // }
+
+    public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
         BarSeries series = createBarSeries(instrument);
-        BarSeries lastBarSeries = new BaseBarSeriesBuilder().withName("lastBarSeries").build();
-        lastBarSeries.addBar(series.getLastBar());
-        System.out.println("LastBarSeriers"+lastBarSeries.getBarData().toString());
-        TypicalPriceIndicator typicalPriceIndicator = new TypicalPriceIndicator(lastBarSeries);
-        RSIIndicator rsiIndicator = new RSIIndicator(typicalPriceIndicator, 30);
-        System.out.println(rsiIndicator.getValue(0).doubleValue());
-        backTesting(instrument);
-        return typicalPriceIndicator.getValue(0).doubleValue();
+
+        // Building the trading strategy
+        buildStrategy(series, instrument, originalAmount);
     }
 
-    public static Strategy buildStrategy(BarSeries series) {
+    public Strategy buildStrategy(BarSeries series, Instrument instrument, BigDecimal originalAmount)
+            throws IOException {
         if (series == null) {
             throw new IllegalArgumentException("Series cannot be null");
         }
@@ -104,30 +123,34 @@ public class AveragePricingStragegy {
         // or selling opportunities within the bigger trend.
         RSIIndicator rsi = new RSIIndicator(closePrice, 2);
 
-
         TypicalPriceIndicator typicalPriceIndicator = new TypicalPriceIndicator(series);
 
+        SuperTrendIndicator superTrendIndicator = new SuperTrendIndicator(series);
+
+        Indicator superTrendLowIndicator = superTrendIndicator.getSuperTrendLowerBandIndicator();
+        Indicator superTrendUpIndicator = superTrendIndicator.getSuperTrendUpperBandIndicator();
 
         // Entry rule
         // The long-term trend is up when a security is above its 200-period SMA.
-        Rule entryRule = new OverIndicatorRule(shortSma, longSma) // Trend
-                .and(new CrossedDownIndicatorRule(rsi, 30)) // Signal 1
-                .and(new OverIndicatorRule(shortSma, closePrice)); // Signal 2
+        Rule entryRule = new UnderIndicatorRule(superTrendLowIndicator, closePrice);
+        Rule exitRule = new OverIndicatorRule(superTrendUpIndicator, closePrice);
+
+        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.
-        Rule exitRule = new UnderIndicatorRule(shortSma, longSma) // Trend
-                .and(new CrossedUpIndicatorRule(rsi, 70)) // Signal 1
-                .and(new UnderIndicatorRule(shortSma, closePrice)); // Signal 2
+        // Rule exitRule = new UnderIndicatorRule(shortSma, longSma) // Trend
+        // .and(new CrossedUpIndicatorRule(rsi, 70)) // Signal 1
+        // .and(new UnderIndicatorRule(shortSma, closePrice)); // Signal 2
 
         return new BaseStrategy(entryRule, exitRule);
     }
 
-    public void backTesting(Instrument instrument) {
+    public void backTesting(Instrument instrument, BigDecimal originalAmount) throws IOException {
         BarSeries series = createBarSeries(instrument);
 
         // Building the trading strategy
-        Strategy strategy = buildStrategy(series);
+        Strategy strategy = buildStrategy(series, instrument, originalAmount);
 
         // Running the strategy
         BarSeriesManager seriesManager = new BarSeriesManager(series);
@@ -136,7 +159,8 @@ public class AveragePricingStragegy {
 
         System.out.println("Position List:" + tradingRecord.getPositions().toString());
         // Analysis
-        // System.out.println("Total return for the strategy: " + new ReturnCriterion().calculate(series, tradingRecord));
+        // System.out.println("Total return for the strategy: " + new
+        // ReturnCriterion().calculate(series, tradingRecord));
 
         ReturnOverMaxDrawdownCriterion totalReturn = new ReturnOverMaxDrawdownCriterion();
         System.out.println("Total return: " + totalReturn.calculate(series, tradingRecord));
@@ -149,7 +173,8 @@ public class AveragePricingStragegy {
         System.out.println("Number of positions: " + new NumberOfPositionsCriterion().calculate(series, tradingRecord));
         // Profitable position ratio
         // System.out.println("Winning positions ratio: "
-                // + new PositionsRatioCriterion(PositionFilter.PROFIT).calculate(series, tradingRecord));
+        // + new PositionsRatioCriterion(PositionFilter.PROFIT).calculate(series,
+        // tradingRecord));
         // Maximum drawdown
         System.out.println("Maximum drawdown: " + new MaximumDrawdownCriterion().calculate(series, tradingRecord));
         // Reward-risk ratio
@@ -164,10 +189,25 @@ public class AveragePricingStragegy {
         // Total profit vs buy-and-hold
         // System.out.println("Custom strategy return vs buy-and-hold strategy return: "
 
-        // + new VersusEnterAndHoldCriterion(totalReturn).calculate(series, tradingRecord));
+        // + new VersusEnterAndHoldCriterion(totalReturn).calculate(series,
+        // tradingRecord));
 
-        System.out.println("Winning positionn: " + new NumberOfWinningPositionsCriterion().calculate(series, tradingRecord));
+        System.out.println("Total Profit: " + new ProfitCriterion().calculate(series, tradingRecord));
 
+        System.out.println("Total Profit Loss: " + new ProfitLossCriterion().calculate(series, tradingRecord));
+
+        System.out.println(
+                "Winning positionn: " + new NumberOfWinningPositionsCriterion().calculate(series, tradingRecord));
+        // Getting the winning positions ratio
+        AnalysisCriterion winningPositionsRatio = new PositionsRatioCriterion(PositionFilter.PROFIT);
+        System.out.println("Winning positions ratio: " + winningPositionsRatio.calculate(series, tradingRecord));
+        // Getting a risk-reward ratio
+        AnalysisCriterion romad = new ReturnOverMaxDrawdownCriterion();
+        System.out.println("Return over Max Drawdown: " + romad.calculate(series, tradingRecord));
+
+        // Total return of our strategy vs total return of a buy-and-hold strategy
+        AnalysisCriterion vsBuyAndHold = new VersusEnterAndHoldCriterion(new ReturnCriterion());
+        System.out.println("Our return vs buy-and-hold return: " + vsBuyAndHold.calculate(series, tradingRecord));
     }
 
 }

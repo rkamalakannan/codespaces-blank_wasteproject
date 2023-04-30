@@ -37,7 +37,7 @@ public class BotController {
     public void executeInstrument(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
             throws IOException {
         Instrument instrument = new CurrencyPair(asset, "USD");
-        krakenConfiguration.placeOrder(instrument, originalAmount);
+        krakenConfiguration.placeOrder(instrument, originalAmount, null, null, null);
 
     }
 
@@ -46,9 +46,7 @@ public class BotController {
     public void findAveragePrice(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
             throws IOException {
         Instrument instrument = new CurrencyPair(asset, "USD");
-        double value = averagePricingStragegy.findAveragePrice(instrument, originalAmount);
-        System.out.println(value);
-
+        averagePricingStragegy.placeOrder(instrument, originalAmount);
     }
 
 }

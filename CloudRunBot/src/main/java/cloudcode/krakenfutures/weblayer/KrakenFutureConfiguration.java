@@ -35,6 +35,8 @@ import org.knowm.xchange.krakenfutures.service.KrakenFuturesTradeServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndIdParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.ta4j.core.BarSeries;
+import org.ta4j.core.Rule;
 
 /**
  *
@@ -56,8 +58,8 @@ public class KrakenFutureConfiguration {
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-        spec.setApiKey("8TfYWFiQi7rfNeWcGw43VBMn+6vUEX5aXJFpC+9d2t9HhPfi+wvWtm+n");
-        spec.setSecretKey("485DCqYfbb2hK4gsbB7NwPHz4esjfT1K9vvFdrP0Wwaq4+Qk8wirhxJHvVYKGTlenSrNawhleF+u2MLm57/k4ghO");
+        spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
+        spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
         spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
@@ -106,6 +108,7 @@ public class KrakenFutureConfiguration {
         if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
             if (priceDifference.compareTo(BigDecimal.ZERO) > 0)
                 predictedPrice = krakenFutureTicker.getMarkPrice().subtract(priceDifference);
+                
             predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
         } else {
             predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
@@ -115,7 +118,7 @@ public class KrakenFutureConfiguration {
         return predictedPrice;
     }
 
-    public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
+    public void placeOrder(Instrument instrument, BigDecimal originalAmount, Rule buyRule, Rule sellRule, BarSeries series) throws IOException {
         // checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
 
@@ -148,9 +151,9 @@ public class KrakenFutureConfiguration {
 
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
-        if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
+        if (buyRule.isSatisfied(series.getEndIndex())) {
             if (triggerOrderType.isEmpty())
-                triggerOrderType = "ASK";
+                triggerOrderType = "BID";
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
                     krakenFutureLastValue,
                     openPositionsList);
@@ -158,11 +161,11 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+            triggerOrders(instrument, originalAmount, openPositionsList, "BID", openPositionPrice,
                     krakenFutureLastValue, profitLimitPricePredicted);
-        } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
+        } else if (sellRule.isSatisfied(series.getEndIndex())) {
             if (triggerOrderType.isEmpty())
-                triggerOrderType = "BID";
+                triggerOrderType = "ASK";
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
                     krakenFutureLastValue,
                     openPositionsList);
@@ -170,7 +173,7 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
+            triggerOrders(instrument, originalAmount, openPositionsList, "ASK", openPositionPrice,
                     krakenSpotLastValue, profitLimitPricePredicted);
         } else {
             System.out.println("Initial Condition Failed!!");
@@ -182,9 +185,9 @@ public class KrakenFutureConfiguration {
             BigDecimal profitLimitPricePredicted) throws IOException {
         placeStopOrder(instrument, originalAmount, triggerOrderType,
                 krakenSpotLastValue, openPositionsList);
-        placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
-                openPositionPrice,
-                profitLimitPricePredicted);
+        // placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList, triggerOrderType,
+        //         openPositionPrice,
+        //         profitLimitPricePredicted);
     }
 
     private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount,

@@ -165,7 +165,7 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, originalAmount, openPositionsList, "BID", openPositionPrice,
+            triggerOrders(instrument, originalAmount, openPositionsList, "ASK", openPositionPrice,
                     krakenFutureLastValue, profitLimitPricePredicted);
         } else if (sellRule.isSatisfied(series.getEndIndex())) {
             if (openPositionAmount == null)
@@ -179,7 +179,7 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, openPositionAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, openPositionAmount, openPositionsList, "ASK", openPositionPrice,
+            triggerOrders(instrument, openPositionAmount, openPositionsList, "BUY", openPositionPrice,
                     krakenSpotLastValue, profitLimitPricePredicted);
         } else {
             System.out.println("Initial Condition Failed!!");

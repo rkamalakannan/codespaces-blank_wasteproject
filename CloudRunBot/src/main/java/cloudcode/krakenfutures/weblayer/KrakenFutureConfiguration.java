@@ -156,43 +156,58 @@ public class KrakenFutureConfiguration {
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
         if (buyRule.isSatisfied(series.getEndIndex())) {
-            if (openPositionAmount == BigDecimal.ZERO)
-                openPositionAmount = originalAmount;
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
-                    krakenFutureLastValue,  
-                    openPositionsList);
-            if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
-                        openPositionsList);
+
+            if (triggerOrderType == "ASK") {
+                if (openPositionAmount == BigDecimal.ZERO) {
+                    originalAmount = openPositionAmount;
+                }
             }
-            triggerOrders(instrument, openPositionAmount, openPositionsList, "ASK", openPositionPrice,
-                    krakenFutureLastValue, profitLimitPricePredicted);
-        } else if (sellRule.isSatisfied(series.getEndIndex())) {
-            if (openPositionAmount == BigDecimal.ZERO)
-                openPositionAmount = originalAmount;
-            if (triggerOrderType.isEmpty())
-                triggerOrderType = "ASK";
-            String marketOrderId = placeMarketOrder(instrument, openPositionAmount, "ASK",
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, triggerOrderType,
                     krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, openPositionAmount, "ASK", krakenFutureLastValue,
+                placeLimitOrder(instrument, originalAmount, triggerOrderType, krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, openPositionAmount, openPositionsList, "BID", openPositionPrice,
+            triggerOrders(instrument, openPositionAmount, openPositionsList, triggerOrderType, openPositionPrice,
+                    krakenFutureLastValue, profitLimitPricePredicted);
+        } else if (sellRule.isSatisfied(series.getEndIndex())) {
+            if (triggerOrderType.isEmpty())
+                triggerOrderType = "ASK";
+
+            if (triggerOrderType == "BID") {
+                if (openPositionAmount == BigDecimal.ZERO) {
+                    originalAmount = openPositionAmount;
+                }
+            }
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, triggerOrderType,
+                    krakenFutureLastValue,
+                    openPositionsList);
+            if (marketOrderId.isEmpty()) {
+                placeLimitOrder(instrument, originalAmount, triggerOrderType, krakenFutureLastValue,
+                        openPositionsList);
+            }
+            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
                     krakenSpotLastValue, profitLimitPricePredicted);
         } else {
             System.out.println("Initial Condition Failed!!");
             placeStopOrder(instrument, originalAmount, triggerOrderType,
-                krakenSpotLastValue, openPositionsList);
+                    krakenSpotLastValue, openPositionsList);
         }
     }
 
     private void triggerOrders(Instrument instrument, BigDecimal originalAmount, List<OpenPosition> openPositionsList,
             String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue,
             BigDecimal profitLimitPricePredicted) throws IOException {
+
+        if (triggerOrderType == "BID") {
+            triggerOrderType = "ASK";
+        } else {
+            triggerOrderType = "BID";
+        }
+
         placeStopOrder(instrument, originalAmount, triggerOrderType,
                 krakenSpotLastValue, openPositionsList);
         // placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList,

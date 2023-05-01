@@ -135,13 +135,13 @@ public class AveragePricingStragegy {
 
         // Entry rule
         // The long-term trend is up when a security is above its 200-period SMA.
-        Rule entryRule = new UnderIndicatorRule(superTrendLowIndicator, closePrice);
-        Rule exitRule = new OverIndicatorRule(superTrendUpIndicator, closePrice);
+        Rule entryRule = new OverIndicatorRule(superTrendLowIndicator, closePrice);
+        Rule exitRule = new UnderIndicatorRule(closePrice, superTrendUpIndicator);
 
         System.out.println(entryRule.isSatisfied(series.getEndIndex()));
         System.out.println(exitRule.isSatisfied(series.getEndIndex()));
         
-        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
+        // krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.

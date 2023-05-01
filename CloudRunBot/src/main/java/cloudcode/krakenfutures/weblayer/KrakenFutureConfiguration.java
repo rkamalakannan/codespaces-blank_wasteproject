@@ -156,7 +156,7 @@ public class KrakenFutureConfiguration {
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
         if (buyRule.isSatisfied(series.getEndIndex())) {
-            if (openPositionAmount == null)
+            if (openPositionAmount == BigDecimal.ZERO)
                 openPositionAmount = originalAmount;
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
@@ -170,7 +170,7 @@ public class KrakenFutureConfiguration {
             triggerOrders(instrument, openPositionAmount, openPositionsList, "ASK", openPositionPrice,
                     krakenFutureLastValue, profitLimitPricePredicted);
         } else if (sellRule.isSatisfied(series.getEndIndex())) {
-            if (openPositionAmount == null)
+            if (openPositionAmount == BigDecimal.ZERO)
                 openPositionAmount = originalAmount;
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";

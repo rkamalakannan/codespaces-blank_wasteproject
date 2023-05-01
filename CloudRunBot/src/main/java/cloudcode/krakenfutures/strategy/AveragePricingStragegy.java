@@ -41,6 +41,7 @@ import org.ta4j.core.criteria.VersusEnterAndHoldCriterion;
 import org.ta4j.core.criteria.pnl.ProfitCriterion;
 import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
 import org.ta4j.core.criteria.pnl.ReturnCriterion;
+import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
@@ -129,11 +130,26 @@ public class AveragePricingStragegy {
 
         Indicator superTrendLowIndicator = superTrendIndicator.getSuperTrendLowerBandIndicator();
         Indicator superTrendUpIndicator = superTrendIndicator.getSuperTrendUpperBandIndicator();
+        
+        System.out.println("Up" +superTrendUpIndicator.getValue(series.getEndIndex()));
+        System.out.println("Low" +superTrendLowIndicator.getValue(series.getEndIndex()));
+
+
+        System.out.println("close" +closePrice.getValue(series.getEndIndex()));
+
+
 
         // Entry rule
         // The long-term trend is up when a security is above its 200-period SMA.
-        Rule entryRule = new UnderIndicatorRule(superTrendLowIndicator, closePrice);
+        Rule entryRule = new CrossedDownIndicatorRule(superTrendLowIndicator, closePrice);
         Rule exitRule = new OverIndicatorRule(superTrendUpIndicator, closePrice);
+
+
+        System.out.println(entryRule.isSatisfied(series.getEndIndex()));
+        System.out.println(exitRule.isSatisfied(series.getEndIndex()));
+
+
+    
 
         krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 

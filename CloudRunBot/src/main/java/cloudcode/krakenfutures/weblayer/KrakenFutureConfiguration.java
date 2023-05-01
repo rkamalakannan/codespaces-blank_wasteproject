@@ -185,6 +185,8 @@ public class KrakenFutureConfiguration {
                     krakenSpotLastValue, profitLimitPricePredicted);
         } else {
             System.out.println("Initial Condition Failed!!");
+            placeStopOrder(instrument, originalAmount, triggerOrderType,
+                krakenSpotLastValue, openPositionsList);
         }
     }
 

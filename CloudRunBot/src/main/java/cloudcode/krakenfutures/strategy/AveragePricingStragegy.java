@@ -135,8 +135,8 @@ public class AveragePricingStragegy {
 
         // Entry rule
         // The long-term trend is up when a security is above its 200-period SMA.
-        Rule entryRule = new CrossedUpIndicatorRule(superTrendLowIndicator, closePrice);
-        Rule exitRule = new CrossedDownIndicatorRule(closePrice, superTrendUpIndicator);
+        Rule entryRule = new OverIndicatorRule(superTrendLowIndicator, closePrice); //a > b
+        Rule exitRule = new UnderIndicatorRule(closePrice, superTrendUpIndicator); //a < b
 
         System.out.println(entryRule.isSatisfied(series.getEndIndex()));
         System.out.println(exitRule.isSatisfied(series.getEndIndex()));

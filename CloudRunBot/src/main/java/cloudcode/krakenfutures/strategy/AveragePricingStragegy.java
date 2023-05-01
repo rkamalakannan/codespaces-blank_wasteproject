@@ -141,7 +141,7 @@ public class AveragePricingStragegy {
         System.out.println(entryRule.isSatisfied(series.getEndIndex()));
         System.out.println(exitRule.isSatisfied(series.getEndIndex()));
         
-        // krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
+        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.

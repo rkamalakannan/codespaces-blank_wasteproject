@@ -181,7 +181,7 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, openPositionAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, openPositionAmount, openPositionsList, "BUY", openPositionPrice,
+            triggerOrders(instrument, openPositionAmount, openPositionsList, "BID", openPositionPrice,
                     krakenSpotLastValue, profitLimitPricePredicted);
         } else {
             System.out.println("Initial Condition Failed!!");

@@ -44,6 +44,8 @@ import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
 import org.ta4j.core.criteria.pnl.ReturnCriterion;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
 import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.IsFallingRule;
+import org.ta4j.core.rules.IsRisingRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
@@ -130,16 +132,18 @@ public class AveragePricingStragegy {
         System.out.println("Up" +superTrendUpIndicator.getValue(series.getEndIndex()));
         System.out.println("Low" +superTrendLowIndicator.getValue(series.getEndIndex()));
 
+        System.out.println("SuperTrendIndicator"+superTrendIndicator.getValue(series.getEndIndex()));
 
         System.out.println("close" +closePrice.getValue(series.getEndIndex()));
 
         // Entry rule
-        // The long-term trend is up when a security is above its 200-period SMA.
-        Rule entryRule = new OverIndicatorRule(superTrendLowIndicator, closePrice); //a > b
-        Rule exitRule = new UnderIndicatorRule(closePrice, superTrendUpIndicator); //a < b
+        // A buy signal is generated when the ‘Supertrend’ closes above the price 
+        //and a sell signal is generated when it closes below the closing price.
+        Rule entryRule = new OverIndicatorRule(superTrendIndicator,closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
+        Rule exitRule = new UnderIndicatorRule(superTrendIndicator,closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
 
-        System.out.println(entryRule.isSatisfied(series.getEndIndex()));
-        System.out.println(exitRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Entry Rule Satisfied:"+entryRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Exit Rule Satisified:"+exitRule.isSatisfied(series.getEndIndex()));
         
         krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 

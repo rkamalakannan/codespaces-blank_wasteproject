@@ -17,6 +17,7 @@ import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.helpers.TypicalPriceIndicator;
 import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
+import org.ta4j.core.num.Num;
 import org.ta4j.core.AnalysisCriterion;
 import org.ta4j.core.AnalysisCriterion.PositionFilter;
 import org.ta4j.core.BarSeries;
@@ -42,6 +43,7 @@ import org.ta4j.core.criteria.pnl.ProfitCriterion;
 import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
 import org.ta4j.core.criteria.pnl.ReturnCriterion;
 import org.ta4j.core.rules.CrossedDownIndicatorRule;
+import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
@@ -71,7 +73,7 @@ public class AveragePricingStragegy {
             KrakenOHLCs krakenOHLCs = getOhlc5m(instrument);
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
                 BaseBar bar = new BaseBar(
-                        Duration.ofMinutes(1),
+                        Duration.ofMinutes(5),
                         ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()),
                                 ZoneId.systemDefault()),
                         krakenOHLC.getOpen(),
@@ -105,6 +107,7 @@ public class AveragePricingStragegy {
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
         BarSeries series = createBarSeries(instrument);
+        // backTesting(instrument, originalAmount, series);
 
         // Building the trading strategy
         buildStrategy(series, instrument, originalAmount);
@@ -116,20 +119,13 @@ public class AveragePricingStragegy {
             throw new IllegalArgumentException("Series cannot be null");
         }
 
+
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-        SMAIndicator shortSma = new SMAIndicator(closePrice, 5);
-        SMAIndicator longSma = new SMAIndicator(closePrice, 200);
-
-        // We use a 2-period RSI indicator to identify buying
-        // or selling opportunities within the bigger trend.
-        RSIIndicator rsi = new RSIIndicator(closePrice, 2);
-
-        TypicalPriceIndicator typicalPriceIndicator = new TypicalPriceIndicator(series);
 
         SuperTrendIndicator superTrendIndicator = new SuperTrendIndicator(series);
 
-        Indicator superTrendLowIndicator = superTrendIndicator.getSuperTrendLowerBandIndicator();
-        Indicator superTrendUpIndicator = superTrendIndicator.getSuperTrendUpperBandIndicator();
+        Indicator<Num> superTrendLowIndicator = superTrendIndicator.getSuperTrendLowerBandIndicator();
+        Indicator<Num> superTrendUpIndicator = superTrendIndicator.getSuperTrendUpperBandIndicator();
         
         System.out.println("Up" +superTrendUpIndicator.getValue(series.getEndIndex()));
         System.out.println("Low" +superTrendLowIndicator.getValue(series.getEndIndex()));
@@ -137,20 +133,14 @@ public class AveragePricingStragegy {
 
         System.out.println("close" +closePrice.getValue(series.getEndIndex()));
 
-
-
         // Entry rule
         // The long-term trend is up when a security is above its 200-period SMA.
-        Rule entryRule = new CrossedDownIndicatorRule(superTrendLowIndicator, closePrice);
+        Rule entryRule = new UnderIndicatorRule(superTrendLowIndicator, closePrice);
         Rule exitRule = new OverIndicatorRule(superTrendUpIndicator, closePrice);
-
 
         System.out.println(entryRule.isSatisfied(series.getEndIndex()));
         System.out.println(exitRule.isSatisfied(series.getEndIndex()));
-
-
-    
-
+        
         krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule
@@ -162,11 +152,12 @@ public class AveragePricingStragegy {
         return new BaseStrategy(entryRule, exitRule);
     }
 
-    public void backTesting(Instrument instrument, BigDecimal originalAmount) throws IOException {
-        BarSeries series = createBarSeries(instrument);
-
+    public void backTesting(Instrument instrument, BigDecimal originalAmount, BarSeries series) throws IOException {
         // Building the trading strategy
         Strategy strategy = buildStrategy(series, instrument, originalAmount);
+
+        
+
 
         // Running the strategy
         BarSeriesManager seriesManager = new BarSeriesManager(series);

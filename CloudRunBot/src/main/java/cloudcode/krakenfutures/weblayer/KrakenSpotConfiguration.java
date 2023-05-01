@@ -46,7 +46,7 @@ public class KrakenSpotConfiguration {
         LocalDateTime time = LocalDateTime.now().minusHours(8);
         ZoneId zoneId = ZoneId.systemDefault();
         long epoch = time.atZone(zoneId).toEpochSecond();
-        KrakenOHLCs krakenOHLCs =  krakenMarketDataService.getKrakenOHLC(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"), 1, epoch);
+        KrakenOHLCs krakenOHLCs =  krakenMarketDataService.getKrakenOHLC(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"), 5, epoch);
         return krakenOHLCs;
       }
 }

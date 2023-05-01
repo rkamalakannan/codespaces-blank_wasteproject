@@ -161,7 +161,7 @@ public class KrakenFutureConfiguration {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
-                    krakenFutureLastValue,
+                    krakenFutureLastValue,  
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,

@@ -164,11 +164,11 @@ public class KrakenFutureConfiguration {
                     originalAmount = openPositionAmount;
                 }
             }
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, triggerOrderType,
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
                     krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, originalAmount, triggerOrderType, krakenFutureLastValue,
+                placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
             triggerOrders(instrument, openPositionAmount, openPositionsList, triggerOrderType, openPositionPrice,
@@ -182,11 +182,11 @@ public class KrakenFutureConfiguration {
                     originalAmount = openPositionAmount;
                 }
             }
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, triggerOrderType,
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
                     krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, originalAmount, triggerOrderType, krakenFutureLastValue,
+                placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
@@ -201,12 +201,6 @@ public class KrakenFutureConfiguration {
     private void triggerOrders(Instrument instrument, BigDecimal originalAmount, List<OpenPosition> openPositionsList,
             String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue,
             BigDecimal profitLimitPricePredicted) throws IOException {
-
-        if (triggerOrderType == "BID") {
-            triggerOrderType = "ASK";
-        } else {
-            triggerOrderType = "BID";
-        }
 
         placeStopOrder(instrument, originalAmount, triggerOrderType,
                 krakenSpotLastValue, openPositionsList);

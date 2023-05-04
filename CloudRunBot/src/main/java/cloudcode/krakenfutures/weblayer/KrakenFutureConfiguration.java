@@ -164,11 +164,11 @@ public class KrakenFutureConfiguration {
                     originalAmount = openPositionAmount;
                 }
             }
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
                     krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
+                placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
             triggerOrders(instrument, openPositionAmount, openPositionsList, triggerOrderType, openPositionPrice,
@@ -182,11 +182,11 @@ public class KrakenFutureConfiguration {
                     originalAmount = openPositionAmount;
                 }
             }
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
+            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
                     krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
+                placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,

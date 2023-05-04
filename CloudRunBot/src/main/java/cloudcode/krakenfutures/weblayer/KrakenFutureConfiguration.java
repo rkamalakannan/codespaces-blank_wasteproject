@@ -160,7 +160,7 @@ public class KrakenFutureConfiguration {
                 triggerOrderType = "BID";
 
             if (triggerOrderType == "ASK") {
-                if (openPositionAmount == BigDecimal.ZERO) {
+                if (openPositionAmount != BigDecimal.ZERO) {
                     originalAmount = openPositionAmount;
                 }
             }
@@ -178,7 +178,7 @@ public class KrakenFutureConfiguration {
                 triggerOrderType = "ASK";
 
             if (triggerOrderType == "BID") {
-                if (openPositionAmount == BigDecimal.ZERO) {
+                if (openPositionAmount != BigDecimal.ZERO) {
                     originalAmount = openPositionAmount;
                 }
             }

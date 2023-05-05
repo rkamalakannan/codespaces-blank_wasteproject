@@ -37,7 +37,7 @@ import org.springframework.stereotype.Component;
 public class KrakenFutureConfiguration {
 
     public static final double SL = 0.5;
-    
+
     @Autowired
     CryptoWatchConfiguration cryptoWatchConfiguration;
 
@@ -50,8 +50,8 @@ public class KrakenFutureConfiguration {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
 //        spec.setApiKey("9uJBCOFWib8xnSfGIUnK5WyoHkdvJ/n0soLSgcAKilKNmF289B4A3myC");
 //        spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
-         spec.setApiKey("4mGtUq0MziMEHdvnpjQd1knBGEwe4TnTnG/SQXCFBqgNFsYDYTjB1MCg");
-         spec.setSecretKey("HaiZ+21F2UvNPD7DMlJXxv5bDB/Wt8wv57QfOIdBaPvSeKJ7Co6NW2T80puhjQmBp2szag1xghQacYrlpHXkhU40");
+        spec.setApiKey("4mGtUq0MziMEHdvnpjQd1knBGEwe4TnTnG/SQXCFBqgNFsYDYTjB1MCg");
+        spec.setSecretKey("HaiZ+21F2UvNPD7DMlJXxv5bDB/Wt8wv57QfOIdBaPvSeKJ7Co6NW2T80puhjQmBp2szag1xghQacYrlpHXkhU40");
         spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }

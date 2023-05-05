@@ -139,7 +139,9 @@ public class KrakenFutureConfiguration {
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
         BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
-        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getBid().getPrice();
+//        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getBid().getPrice();
+        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
+
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
 

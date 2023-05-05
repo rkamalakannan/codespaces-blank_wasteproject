@@ -27,7 +27,8 @@ public class CryptoWatchConfiguration {
 
     public CryptowatchSummary getSpotPriceChange(Instrument instrument) throws IOException {
         CryptowatchMarketDataServiceRaw marketDataService = (CryptowatchMarketDataServiceRaw) cryptoExchange.getMarketDataService();
-        return marketDataService.getCryptowatchSummary(new CurrencyPair(instrument.getBase(), instrument.getCounter()), "kraken");
+        String market = "binance";
+        return marketDataService.getCryptowatchSummary(new CurrencyPair(instrument.getBase().toString(),"USDT"),market);
     }
 
 

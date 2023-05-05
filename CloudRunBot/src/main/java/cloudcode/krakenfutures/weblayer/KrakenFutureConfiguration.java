@@ -421,7 +421,6 @@ public class KrakenFutureConfiguration {
                 String orderId = exchange.getTradeService()
                         .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .intention(StopOrder.Intention.TAKE_PROFIT)
-                                .limitPrice(stopPrice)
                                 .stopPrice(stopPrice)
                                 .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
                                 .originalAmount(positionSize)

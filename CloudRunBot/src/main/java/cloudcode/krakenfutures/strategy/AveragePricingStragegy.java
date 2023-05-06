@@ -1,56 +1,30 @@
 package cloudcode.krakenfutures.strategy;
 
+import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
+import cloudcode.krakenfutures.weblayer.KrakenSpotConfiguration;
+import org.knowm.xchange.instrument.Instrument;
+import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLC;
+import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.ta4j.core.*;
+import org.ta4j.core.AnalysisCriterion.PositionFilter;
+import org.ta4j.core.criteria.*;
+import org.ta4j.core.criteria.pnl.ProfitCriterion;
+import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
+import org.ta4j.core.criteria.pnl.ReturnCriterion;
+import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
+import org.ta4j.core.num.Num;
+import org.ta4j.core.rules.OverIndicatorRule;
+import org.ta4j.core.rules.UnderIndicatorRule;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-
-import org.knowm.xchange.instrument.Instrument;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLC;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.ta4j.core.indicators.RSIIndicator;
-import org.ta4j.core.indicators.SMAIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.TypicalPriceIndicator;
-import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
-import org.ta4j.core.num.Num;
-import org.ta4j.core.AnalysisCriterion;
-import org.ta4j.core.AnalysisCriterion.PositionFilter;
-import org.ta4j.core.BarSeries;
-import org.ta4j.core.BaseBar;
-import org.ta4j.core.BaseBarSeriesBuilder;
-import org.ta4j.core.BaseStrategy;
-import org.ta4j.core.Indicator;
-import org.ta4j.core.BarSeriesManager;
-import org.ta4j.core.Rule;
-import org.ta4j.core.Strategy;
-import org.ta4j.core.TradingRecord;
-import org.ta4j.core.criteria.AverageReturnPerBarCriterion;
-import org.ta4j.core.criteria.EnterAndHoldReturnCriterion;
-import org.ta4j.core.criteria.LinearTransactionCostCriterion;
-import org.ta4j.core.criteria.MaximumDrawdownCriterion;
-import org.ta4j.core.criteria.NumberOfBarsCriterion;
-import org.ta4j.core.criteria.NumberOfPositionsCriterion;
-import org.ta4j.core.criteria.NumberOfWinningPositionsCriterion;
-import org.ta4j.core.criteria.PositionsRatioCriterion;
-import org.ta4j.core.criteria.ReturnOverMaxDrawdownCriterion;
-import org.ta4j.core.criteria.VersusEnterAndHoldCriterion;
-import org.ta4j.core.criteria.pnl.ProfitCriterion;
-import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
-import org.ta4j.core.criteria.pnl.ReturnCriterion;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.rules.CrossedUpIndicatorRule;
-import org.ta4j.core.rules.IsFallingRule;
-import org.ta4j.core.rules.IsRisingRule;
-import org.ta4j.core.rules.OverIndicatorRule;
-import org.ta4j.core.rules.UnderIndicatorRule;
-
-import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
-import cloudcode.krakenfutures.weblayer.KrakenSpotConfiguration;
 
 @Component
 public class AveragePricingStragegy {
@@ -75,7 +49,7 @@ public class AveragePricingStragegy {
             KrakenOHLCs krakenOHLCs = getOhlc5m(instrument);
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
                 BaseBar bar = new BaseBar(
-                        Duration.ofMinutes(5),
+                        Duration.ofMinutes(1),
                         ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()),
                                 ZoneId.systemDefault()),
                         krakenOHLC.getOpen(),
@@ -109,7 +83,7 @@ public class AveragePricingStragegy {
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
         BarSeries series = createBarSeries(instrument);
-        // backTesting(instrument, originalAmount, series);
+//        backTesting(instrument, originalAmount, series);
 
         // Building the trading strategy
         buildStrategy(series, instrument, originalAmount);
@@ -128,23 +102,23 @@ public class AveragePricingStragegy {
 
         Indicator<Num> superTrendLowIndicator = superTrendIndicator.getSuperTrendLowerBandIndicator();
         Indicator<Num> superTrendUpIndicator = superTrendIndicator.getSuperTrendUpperBandIndicator();
-        
-        System.out.println("Up" +superTrendUpIndicator.getValue(series.getEndIndex()));
-        System.out.println("Low" +superTrendLowIndicator.getValue(series.getEndIndex()));
 
-        System.out.println("SuperTrendIndicator"+superTrendIndicator.getValue(series.getEndIndex()));
+        System.out.println("Up" + superTrendUpIndicator.getValue(series.getEndIndex()));
+        System.out.println("Low" + superTrendLowIndicator.getValue(series.getEndIndex()));
 
-        System.out.println("close" +closePrice.getValue(series.getEndIndex()));
+        System.out.println("SuperTrendIndicator" + superTrendIndicator.getValue(series.getEndIndex()));
+
+        System.out.println("close" + closePrice.getValue(series.getEndIndex()));
 
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-        Rule entryRule = new CrossedUpIndicatorRule(superTrendLowIndicator,closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
-        Rule exitRule = new CrossedDownIndicatorRule(superTrendUpIndicator,closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
+        Rule entryRule = new OverIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
+        Rule exitRule = new UnderIndicatorRule(superTrendIndicator, closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
 
-        System.out.println("Entry Rule Satisfied:"+entryRule.isSatisfied(series.getEndIndex()));
-        System.out.println("Exit Rule Satisified:"+exitRule.isSatisfied(series.getEndIndex()));
-        
+        System.out.println("Entry Rule Satisfied:" + entryRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Exit Rule Satisified:" + exitRule.isSatisfied(series.getEndIndex()));
+
         krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule

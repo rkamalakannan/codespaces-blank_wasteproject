@@ -5,14 +5,6 @@
 
 package cloudcode.krakenfutures.weblayer;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
@@ -36,6 +28,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Rule;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * @author vscode
@@ -150,7 +150,7 @@ public class KrakenFutureConfiguration {
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
         if (buyRule.isSatisfied(series.getEndIndex())) {
-            if (triggerOrderType.isEmpty() || triggerOrderType.equals("BID"))
+            if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
 
             if (!Objects.equals(openPositionAmount, BigDecimal.ZERO)) {
@@ -166,7 +166,7 @@ public class KrakenFutureConfiguration {
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
                     krakenFutureLastValue, profitLimitPricePredicted);
         } else if (sellRule.isSatisfied(series.getEndIndex())) {
-            if (triggerOrderType.isEmpty() || triggerOrderType.equals("ASK"))
+            if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
 
             if (!Objects.equals(openPositionAmount, BigDecimal.ZERO)) {

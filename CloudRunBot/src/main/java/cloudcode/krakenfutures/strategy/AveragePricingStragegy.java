@@ -139,8 +139,8 @@ public class AveragePricingStragegy {
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-        Rule entryRule = new OverIndicatorRule(superTrendIndicator,closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
-        Rule exitRule = new UnderIndicatorRule(superTrendIndicator,closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
+        Rule entryRule = new CrossedUpIndicatorRule(superTrendLowIndicator,closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
+        Rule exitRule = new CrossedDownIndicatorRule(superTrendUpIndicator,closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
 
         System.out.println("Entry Rule Satisfied:"+entryRule.isSatisfied(series.getEndIndex()));
         System.out.println("Exit Rule Satisified:"+exitRule.isSatisfied(series.getEndIndex()));

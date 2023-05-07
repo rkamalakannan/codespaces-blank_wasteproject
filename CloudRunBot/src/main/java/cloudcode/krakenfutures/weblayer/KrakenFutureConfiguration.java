@@ -153,7 +153,7 @@ public class KrakenFutureConfiguration {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
 
-            if (!Objects.equals(openPositionAmount, BigDecimal.ZERO)) {
+            if (!Objects.equals(openPositionAmount, BigDecimal.ZERO) && !triggerOrderType.equals("ASK")) {
                 originalAmount = openPositionAmount;
             }
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
@@ -169,7 +169,7 @@ public class KrakenFutureConfiguration {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
 
-            if (!Objects.equals(openPositionAmount, BigDecimal.ZERO)) {
+            if (!Objects.equals(openPositionAmount, BigDecimal.ZERO) && !triggerOrderType.equals("BID")) {
                 originalAmount = openPositionAmount;
             }
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",

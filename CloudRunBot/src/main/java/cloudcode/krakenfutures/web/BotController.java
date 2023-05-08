@@ -5,9 +5,8 @@
 
 package cloudcode.krakenfutures.web;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-
+import cloudcode.krakenfutures.strategy.AveragePricingStragegy;
+import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
 import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.instrument.Instrument;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,13 +14,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import cloudcode.krakenfutures.strategy.AveragePricingStragegy;
-import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
-
+import java.io.IOException;
+import java.math.BigDecimal;
 
 
 /**
- *
  * @author vscode
  */
 @RestController

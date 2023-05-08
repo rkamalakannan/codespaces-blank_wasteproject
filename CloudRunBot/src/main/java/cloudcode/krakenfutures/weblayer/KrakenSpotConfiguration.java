@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
- *
  * @author vscode
  */
 @Component
@@ -47,5 +46,5 @@ public class KrakenSpotConfiguration {
         ZoneId zoneId = ZoneId.systemDefault();
         long epoch = time.atZone(zoneId).toEpochSecond();
         return krakenMarketDataService.getKrakenOHLC(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"), 1, epoch);
-      }
+    }
 }

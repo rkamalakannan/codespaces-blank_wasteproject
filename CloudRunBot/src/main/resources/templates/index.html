@@ -1,16 +1,16 @@
 <!doctype html>
 <html lang=en xmlns:th="http://www.thymeleaf.org">
 <head>
-<meta charset=utf-8>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Congratulations on deploying your Kubernetes app</title>
-<link href="https://fonts.googleapis.com/css?family=Roboto" rel="preload" as="font">
-<link
-  href="img/kubernetes-engine-icon.png"
-  rel="icon"
-  type="image/png"
-/>
-<style>
+    <meta charset=utf-8>
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <title>Congratulations on deploying your Kubernetes app</title>
+    <link as="font" href="https://fonts.googleapis.com/css?family=Roboto" rel="preload">
+    <link
+            href="img/kubernetes-engine-icon.png"
+            rel="icon"
+            type="image/png"
+    />
+    <style>
  body {
 	font-family: 'Roboto', sans-serif;
   font-display: fallback;
@@ -165,50 +165,58 @@
 	}
 }
 
-</style>
+
+
+    </style>
 </head>
 
 <body>
-	<div class="container">
-		<div class="hero">
-			<div style="text-align:center;">
-				<picture>
-					<source srcset="img/KE-hello-world-dark.svg" media="(prefers-color-scheme: dark)">
-					<img th:src="@{img/KE-hello-world.svg}" alt="A group celebrating" width="427" height="231">
-				</picture>
-			</div>
+<div class="container">
+    <div class="hero">
+        <div style="text-align:center;">
+            <picture>
+                <source media="(prefers-color-scheme: dark)" srcset="img/KE-hello-world-dark.svg">
+                <img alt="A group celebrating" height="231" th:src="@{img/KE-hello-world.svg}" width="427">
+            </picture>
+        </div>
 
-			<div class="message">
-				<h1 th:text="${message}" />
-				<h2>Congratulations, you successfully deployed a Kubernetes application with Cloud Code!</h2>
-			</div>
-		</div>
+        <div class="message">
+            <h1 th:text="${message}"/>
+            <h2>Congratulations, you successfully deployed a Kubernetes application with Cloud Code!</h2>
+        </div>
+    </div>
 
-		<div class="details">
-			<h3>What's next?</h3>
-			<p class="next">Learn more about working with Kubernetes in Cloud Code for 
-				<a href="https://cloud.google.com/code/docs/vscode/how-to#working-with-kubernetes" target="_blank" rel="noopener">
-					VSCode
-				</a> 
-				or 
-				<a href="https://cloud.google.com/code/docs/intellij/how-to#working-with-kubernetes" target="_blank" rel="noopener">
-					IntelliJ
-				</a>
-			</p>
-			<p class="next">Get started with <a href="https://cloud.google.com/blog/products/application-development/how-cloud-code-improves-app-dev-on-gcp" target="_blank" rel="noopener">Google Cloud APIs</a> in Cloud Code</p>
-			<p class="next">Watch how Cloud Code can optimize your <a href="https://www.youtube.com/watch?v=Z2fyc3AbfKE&autoplay=1" target="_blank" rel="noopener">GKE Developer Workflow</a></p>
-			<p class="next">Explore more options with
-			<p class="cta">
-				<a href="https://cloud.google.com/code/docs" target="_blank" rel="noopener">
-					CLOUD CODE DOCS
-				</a>
-			</p>
-			<p class="cta">
-				<a href="https://cloud.google.com/kubernetes-engine" target="_blank" rel="noopener">
-					GOOGLE KUBERNETES ENGINE
-				</a>
-			</p>
-		</div>
-	</div>
+    <div class="details">
+        <h3>What's next?</h3>
+        <p class="next">Learn more about working with Kubernetes in Cloud Code for
+            <a href="https://cloud.google.com/code/docs/vscode/how-to#working-with-kubernetes" rel="noopener"
+               target="_blank">
+                VSCode
+            </a>
+            or
+            <a href="https://cloud.google.com/code/docs/intellij/how-to#working-with-kubernetes" rel="noopener"
+               target="_blank">
+                IntelliJ
+            </a>
+        </p>
+        <p class="next">Get started with <a
+                href="https://cloud.google.com/blog/products/application-development/how-cloud-code-improves-app-dev-on-gcp"
+                rel="noopener" target="_blank">Google Cloud APIs</a> in Cloud Code</p>
+        <p class="next">Watch how Cloud Code can optimize your <a
+                href="https://www.youtube.com/watch?v=Z2fyc3AbfKE&autoplay=1" rel="noopener" target="_blank">GKE
+            Developer Workflow</a></p>
+        <p class="next">Explore more options with
+        <p class="cta">
+            <a href="https://cloud.google.com/code/docs" rel="noopener" target="_blank">
+                CLOUD CODE DOCS
+            </a>
+        </p>
+        <p class="cta">
+            <a href="https://cloud.google.com/kubernetes-engine" rel="noopener" target="_blank">
+                GOOGLE KUBERNETES ENGINE
+            </a>
+        </p>
+    </div>
+</div>
 </body>
 </html>

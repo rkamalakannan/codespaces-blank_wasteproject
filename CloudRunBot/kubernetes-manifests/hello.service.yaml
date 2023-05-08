@@ -7,6 +7,6 @@ spec:
   selector:
     app: java-hello-world
   ports:
-  - name: http
-    port: 80
-    targetPort: 8080
+    - name: http
+      port: 80
+      targetPort: 8080

@@ -1,7 +1,5 @@
 package cloudcode.krakenfutures.weblayer;
 
-import java.io.IOException;
-
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
@@ -12,8 +10,12 @@ import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.instrument.Instrument;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+
 @Component
 public class BinanceFutureConfiguration {
+
+    private Exchange binanceFutureExchange = createExchange();
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(BinanceUsExchange.class);
@@ -21,14 +23,12 @@ public class BinanceFutureConfiguration {
         return ExchangeFactory.INSTANCE.createExchange(spec); //test
     }
 
-    private Exchange binanceFutureExchange = createExchange();
-
     public BinanceFundingRate getBinanceFutureTicker() throws IOException {
         BinanceMarketDataServiceRaw marketDataService = (BinanceMarketDataServiceRaw) binanceFutureExchange
                 .getMarketDataService();
 
         Instrument instrument = new CurrencyPair("BTC", "USDT");
-        
+
         return marketDataService.getBinanceFundingRate(instrument);
     }
 

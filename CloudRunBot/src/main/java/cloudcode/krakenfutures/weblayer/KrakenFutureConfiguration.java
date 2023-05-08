@@ -43,14 +43,13 @@ import java.util.Set;
 @Component
 public class KrakenFutureConfiguration {
 
-    public static final double SL = 0.5;
+    public static final double SL = 0.1;
+    private final Exchange exchange = createExchange();
+
+    //    @Autowired
+//    KrakenSpotConfiguration krakenSpotConfiguration;
     @Autowired
     CryptoWatchConfiguration cryptoWatchConfiguration;
-
-//    @Autowired
-//    KrakenSpotConfiguration krakenSpotConfiguration;
-
-    private final Exchange exchange = createExchange();
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
@@ -335,12 +334,10 @@ public class KrakenFutureConfiguration {
      * @param bidType
      * @param price
      * @param openPositionsList
-     * @throws IOException
      */
 
     public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
-                               List<OpenPosition> openPositionsList)
-            throws IOException {
+                               List<OpenPosition> openPositionsList) {
         BigDecimal stopPrice;
         OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                 .getCurrencyCode().contains(instrument.getBase().getCurrencyCode())).findAny().orElse(null);

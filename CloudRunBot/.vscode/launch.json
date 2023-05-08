@@ -2,18 +2,18 @@
 // See https://code.visualstudio.com/Docs/editor/debugging#_launch-configurations
 // for documentation about how to create and manage configurations
 {
-    "version": "0.2.0",
-    "configurations": [
-      {
-        "name": "Run on Kubernetes",
-        "type": "cloudcode.kubernetes",
-        "request": "launch",
-        "skaffoldConfig": "${workspaceFolder}/skaffold.yaml",
-        "profile": "dockerfile",
-        "watch": true,
-        "cleanUp": true,
-        "portForward": true
-      }
-    ]
-  }
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run on Kubernetes",
+      "type": "cloudcode.kubernetes",
+      "request": "launch",
+      "skaffoldConfig": "${workspaceFolder}/skaffold.yaml",
+      "profile": "dockerfile",
+      "watch": true,
+      "cleanUp": true,
+      "portForward": true
+    }
+  ]
+}
   

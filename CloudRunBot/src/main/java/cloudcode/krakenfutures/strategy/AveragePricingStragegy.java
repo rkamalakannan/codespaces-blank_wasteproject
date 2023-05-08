@@ -45,6 +45,7 @@ public class AveragePricingStragegy {
 
         BarSeries series = new BaseBarSeriesBuilder()
                 .withMaxBarCount(Integer.MAX_VALUE).build();
+
         try {
             KrakenOHLCs krakenOHLCs = getOhlc5m(instrument);
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
@@ -133,8 +134,6 @@ public class AveragePricingStragegy {
     public void backTesting(Instrument instrument, BigDecimal originalAmount, BarSeries series) throws IOException {
         // Building the trading strategy
         Strategy strategy = buildStrategy(series, instrument, originalAmount);
-
-        
 
 
         // Running the strategy

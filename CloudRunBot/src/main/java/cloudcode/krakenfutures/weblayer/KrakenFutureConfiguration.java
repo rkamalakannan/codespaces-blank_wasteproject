@@ -43,7 +43,7 @@ import java.util.Set;
 @Component
 public class KrakenFutureConfiguration {
 
-    public static final double SL = 0.1;
+    public static final double SL = 0.4;
     private final Exchange exchange = createExchange();
 
     //    @Autowired

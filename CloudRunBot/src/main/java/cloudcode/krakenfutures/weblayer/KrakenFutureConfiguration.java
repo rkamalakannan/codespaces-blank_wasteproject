@@ -118,8 +118,6 @@ public class KrakenFutureConfiguration {
 
         String triggerOrderType = "";
 
-        BigDecimal openPositionPrice = BigDecimal.ZERO;
-
         BigDecimal openPositionAmount = BigDecimal.ZERO;
 
         if (openPositionsList.size() > 0) {
@@ -128,7 +126,6 @@ public class KrakenFutureConfiguration {
                             .contains(instrument.getBase().getCurrencyCode()))
                     .findFirst().orElse(null);
             if (openPosition != null) {
-                openPositionPrice = openPosition.getPrice();
                 openPositionAmount = openPosition.getSize();
                 if (openPosition.getType()
                         .equals(OpenPosition.Type.LONG)) {
@@ -136,17 +133,12 @@ public class KrakenFutureConfiguration {
                 } else {
                     triggerOrderType = "BID";
                 }
-            } else {
-                openPositionPrice = originalAmount;
             }
         }
         checkOpenOrdersAndCancelFirst(instrument);
         BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
         BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
-        System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
-        System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
 
-        BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
         if (buyRule.isSatisfied(series.getEndIndex())) {
             if (triggerOrderType.isEmpty())
@@ -162,8 +154,8 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
-                    krakenFutureLastValue, profitLimitPricePredicted);
+            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType,
+                    krakenSpotLastValue);
         } else if (sellRule.isSatisfied(series.getEndIndex())) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
@@ -178,8 +170,8 @@ public class KrakenFutureConfiguration {
                 placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
-            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
-                    krakenSpotLastValue, profitLimitPricePredicted);
+            triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType,
+                    krakenSpotLastValue);
         } else {
             System.out.println("Initial Condition Failed!!");
             if (!triggerOrderType.isEmpty()) {
@@ -190,8 +182,7 @@ public class KrakenFutureConfiguration {
     }
 
     private void triggerOrders(Instrument instrument, BigDecimal originalAmount, List<OpenPosition> openPositionsList,
-                               String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue,
-                               BigDecimal profitLimitPricePredicted) throws IOException {
+                               String triggerOrderType, BigDecimal krakenSpotLastValue) throws IOException {
 
         placeStopOrder(instrument, originalAmount, triggerOrderType,
                 krakenSpotLastValue, openPositionsList);
@@ -345,14 +336,10 @@ public class KrakenFutureConfiguration {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
-                    stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(SL / 100.0)));
                     originalAmount = openPosition.getSize();
-                } else {
-                    stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(SL / 100.0)));
                 }
-            } else {
-                stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(SL / 100.0)));
             }
+            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(SL / 100.0)));
         } else {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {

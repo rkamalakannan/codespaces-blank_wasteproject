@@ -46,10 +46,10 @@ public class KrakenFutureConfiguration {
     public static final double SL = 0.4;
     private final Exchange exchange = createExchange();
 
-    //    @Autowired
-//    KrakenSpotConfiguration krakenSpotConfiguration;
     @Autowired
-    CryptoWatchConfiguration cryptoWatchConfiguration;
+    KrakenSpotConfiguration krakenSpotConfiguration;
+//    @Autowired
+//    CryptoWatchConfiguration cryptoWatchConfiguration;
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
@@ -65,51 +65,51 @@ public class KrakenFutureConfiguration {
         return marketDataService.getKrakenFuturesTicker(instrument);
     }
 
-    public void placeOrder1(Instrument instrument, BigDecimal originalAmount)
-            throws IOException {
-        System.out
-                .println("future" +
-                        cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getChange());
-        System.out.println("spot" +
-                cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange());
-        System.out.println(
-                "future price last" +
-                        cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast());
-        System.out.println(
-                "spot price last " +
-                        cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
-        BigDecimal priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
-                .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
-                        .getChange().getAbsolute());
-        BigDecimal predictedPrice = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast()
-                .plus().add(priceDifference);
-        System.out.println("predictedfuture" + predictedPrice);
-        System.out.println("pricedfference" + priceDifference);
-    }
+//    public void placeOrder1(Instrument instrument, BigDecimal originalAmount)
+//            throws IOException {
+//        System.out
+//                .println("future" +
+//                        cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getChange());
+//        System.out.println("spot" +
+//                cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange());
+//        System.out.println(
+//                "future price last" +
+//                        cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast());
+//        System.out.println(
+//                "spot price last " +
+//                        cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
+//        BigDecimal priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
+//                .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+//                        .getChange().getAbsolute());
+//        BigDecimal predictedPrice = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast()
+//                .plus().add(priceDifference);
+//        System.out.println("predictedfuture" + predictedPrice);
+//        System.out.println("pricedfference" + priceDifference);
+//    }
 
-    public BigDecimal getProfitLimitPrice(Instrument instrument) throws IOException {
-
-        BigDecimal predictedPrice = BigDecimal.ZERO;
-
-        BigDecimal futureBigDecimalPercentage = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
-                .getChange().getPercentage();
-        BigDecimal spotBigDecimalPercentage = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
-                .getChange().getPercentage();
-        BigDecimal priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
-                .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
-                        .getChange().getAbsolute());
-
-        KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
-        if (futureBigDecimalPercentage.max(spotBigDecimalPercentage).equals(futureBigDecimalPercentage)) {
-            if (priceDifference.compareTo(BigDecimal.ZERO) > 0)
-                predictedPrice = krakenFutureTicker.getMarkPrice().subtract(priceDifference);
-        } else {
-            predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
-        }
-        System.out.println("predictedfuture" + predictedPrice);
-        System.out.println("pricedfference" + priceDifference);
-        return predictedPrice;
-    }
+//    public BigDecimal getProfitLimitPrice(Instrument instrument) throws IOException {
+//
+//        BigDecimal predictedPrice = BigDecimal.ZERO;
+//
+//        BigDecimal futureBigDecimalPercentage = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+//                .getChange().getPercentage();
+//        BigDecimal spotBigDecimalPercentage = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
+//                .getChange().getPercentage();
+//        BigDecimal priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
+//                .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+//                        .getChange().getAbsolute());
+//
+//        KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
+//        if (futureBigDecimalPercentage.max(spotBigDecimalPercentage).equals(futureBigDecimalPercentage)) {
+//            if (priceDifference.compareTo(BigDecimal.ZERO) > 0)
+//                predictedPrice = krakenFutureTicker.getMarkPrice().subtract(priceDifference);
+//        } else {
+//            predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
+//        }
+//        System.out.println("predictedfuture" + predictedPrice);
+//        System.out.println("pricedfference" + priceDifference);
+//        return predictedPrice;
+//    }
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount, Rule buyRule, Rule sellRule,
                            BarSeries series) throws IOException {
@@ -137,7 +137,7 @@ public class KrakenFutureConfiguration {
         }
         checkOpenOrdersAndCancelFirst(instrument);
         BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
-        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
+        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getClose().getPrice();
 
 
         if (buyRule.isSatisfied(series.getEndIndex())) {

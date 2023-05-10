@@ -96,11 +96,11 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.knowm.xchange</groupId>
-            <artifactId>xchange-cryptowatch</artifactId>
-            <version>5.1.0</version>
-        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>org.knowm.xchange</groupId>-->
+        <!--            <artifactId>xchange-cryptowatch</artifactId>-->
+        <!--            <version>5.1.0</version>-->
+        <!--        </dependency>-->
         <dependency>
             <groupId>org.knowm.xchange</groupId>
             <artifactId>xchange-krakenfutures</artifactId>

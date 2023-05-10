@@ -13,9 +13,14 @@ import org.ta4j.core.criteria.*;
 import org.ta4j.core.criteria.pnl.ProfitCriterion;
 import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
 import org.ta4j.core.criteria.pnl.ReturnCriterion;
+import org.ta4j.core.indicators.EMAIndicator;
+import org.ta4j.core.indicators.MACDIndicator;
+import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
 import org.ta4j.core.num.Num;
+import org.ta4j.core.rules.CrossedDownIndicatorRule;
+import org.ta4j.core.rules.CrossedUpIndicatorRule;
 import org.ta4j.core.rules.OverIndicatorRule;
 import org.ta4j.core.rules.UnderIndicatorRule;
 
@@ -95,9 +100,15 @@ public class AveragePricingStragegy {
         if (series == null) {
             throw new IllegalArgumentException("Series cannot be null");
         }
-
-
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+
+        MACDIndicator macd = new MACDIndicator(closePrice);
+
+        EMAIndicator emaMacd = new EMAIndicator(macd, 9);
+
+
+        RSIIndicator rsiIndicator = new RSIIndicator(closePrice, 14);
+
 
         SuperTrendIndicator superTrendIndicator = new SuperTrendIndicator(series);
 
@@ -117,10 +128,14 @@ public class AveragePricingStragegy {
         Rule entryRule = new OverIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
         Rule exitRule = new UnderIndicatorRule(superTrendIndicator, closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
 
-        System.out.println("Entry Rule Satisfied:" + entryRule.isSatisfied(series.getEndIndex()));
-        System.out.println("Exit Rule Satisified:" + exitRule.isSatisfied(series.getEndIndex()));
 
-        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
+        Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);
+        Rule macdExitRule = new CrossedDownIndicatorRule(macd, emaMacd);
+
+        System.out.println("Entry Rule Satisfied:" + macdEntryRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Exit Rule Satisified:" + macdExitRule.isSatisfied(series.getEndIndex()));
+
+        krakenFutureConfiguration.placeOrder(instrument, originalAmount, macdEntryRule, macdExitRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.

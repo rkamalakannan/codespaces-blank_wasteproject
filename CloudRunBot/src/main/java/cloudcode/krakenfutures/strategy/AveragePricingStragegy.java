@@ -132,10 +132,10 @@ public class AveragePricingStragegy {
         Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);
         Rule macdExitRule = new CrossedDownIndicatorRule(macd, emaMacd);
 
-        System.out.println("Entry Rule Satisfied:" + macdEntryRule.isSatisfied(series.getEndIndex()));
-        System.out.println("Exit Rule Satisified:" + macdExitRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Entry Rule Satisfied:" + entryRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Exit Rule Satisified:" + exitRule.isSatisfied(series.getEndIndex()));
 
-        krakenFutureConfiguration.placeOrder(instrument, originalAmount, macdEntryRule, macdExitRule, series);
+        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.

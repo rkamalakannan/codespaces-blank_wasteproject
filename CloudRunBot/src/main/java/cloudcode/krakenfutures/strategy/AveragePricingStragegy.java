@@ -18,11 +18,9 @@ import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
+import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.rules.CrossedUpIndicatorRule;
-import org.ta4j.core.rules.OverIndicatorRule;
-import org.ta4j.core.rules.UnderIndicatorRule;
+import org.ta4j.core.rules.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -30,6 +28,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class AveragePricingStragegy {
@@ -48,21 +47,12 @@ public class AveragePricingStragegy {
 
     public BarSeries createBarSeries(Instrument instrument) {
 
-        BarSeries series = new BaseBarSeriesBuilder()
-                .withMaxBarCount(Integer.MAX_VALUE).build();
+        BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(Integer.MAX_VALUE).build();
 
         try {
             KrakenOHLCs krakenOHLCs = getOhlc5m(instrument);
             for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
-                BaseBar bar = new BaseBar(
-                        Duration.ofMinutes(1),
-                        ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()),
-                                ZoneId.systemDefault()),
-                        krakenOHLC.getOpen(),
-                        krakenOHLC.getHigh(),
-                        krakenOHLC.getLow(),
-                        krakenOHLC.getClose(),
-                        krakenOHLC.getVolume());
+                BaseBar bar = new BaseBar(Duration.ofMinutes(1), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getOpen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), krakenOHLC.getVolume());
                 series.addBar(bar);
 
             }
@@ -95,8 +85,7 @@ public class AveragePricingStragegy {
         buildStrategy(series, instrument, originalAmount);
     }
 
-    public Strategy buildStrategy(BarSeries series, Instrument instrument, BigDecimal originalAmount)
-            throws IOException {
+    public Strategy buildStrategy(BarSeries series, Instrument instrument, BigDecimal originalAmount) throws IOException {
         if (series == null) {
             throw new IllegalArgumentException("Series cannot be null");
         }
@@ -122,6 +111,7 @@ public class AveragePricingStragegy {
 
         System.out.println("close" + closePrice.getValue(series.getEndIndex()));
 
+
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
@@ -146,6 +136,29 @@ public class AveragePricingStragegy {
         return new BaseStrategy(entryRule, exitRule);
     }
 
+    public void stopLossTrailing(Instrument instrument) {
+        BarSeries series = createBarSeries(instrument);
+        DecimalNum tslPercentage = DecimalNum.valueOf(10.00);
+        ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
+        TrailingStopLossRule rule = new TrailingStopLossRule(closePrice, tslPercentage);
+
+
+    }
+
+    public void execution(Instrument instrument, BigDecimal originalAmount) {
+        CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
+            try {
+                while (true) {
+                    placeOrder(instrument, originalAmount);
+
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+    }
+
     public void backTesting(Instrument instrument, BigDecimal originalAmount, BarSeries series) throws IOException {
         // Building the trading strategy
         Strategy strategy = buildStrategy(series, instrument, originalAmount);
@@ -166,8 +179,7 @@ public class AveragePricingStragegy {
         // Number of bars
         System.out.println("Number of bars: " + new NumberOfBarsCriterion().calculate(series, tradingRecord));
         // Average profit (per bar)
-        System.out.println(
-                "Average return (per bar): " + new AverageReturnPerBarCriterion().calculate(series, tradingRecord));
+        System.out.println("Average return (per bar): " + new AverageReturnPerBarCriterion().calculate(series, tradingRecord));
         // Number of positions
         System.out.println("Number of positions: " + new NumberOfPositionsCriterion().calculate(series, tradingRecord));
         // Profitable position ratio
@@ -177,14 +189,11 @@ public class AveragePricingStragegy {
         // Maximum drawdown
         System.out.println("Maximum drawdown: " + new MaximumDrawdownCriterion().calculate(series, tradingRecord));
         // Reward-risk ratio
-        System.out.println("Return over maximum drawdown: "
-                + new ReturnOverMaxDrawdownCriterion().calculate(series, tradingRecord));
+        System.out.println("Return over maximum drawdown: " + new ReturnOverMaxDrawdownCriterion().calculate(series, tradingRecord));
         // Total transaction cost
-        System.out.println("Total transaction cost (from $1000): "
-                + new LinearTransactionCostCriterion(1000, 0.005).calculate(series, tradingRecord));
+        System.out.println("Total transaction cost (from $1000): " + new LinearTransactionCostCriterion(1000, 0.005).calculate(series, tradingRecord));
         // Buy-and-hold
-        System.out
-                .println("Buy-and-hold return: " + new EnterAndHoldReturnCriterion().calculate(series, tradingRecord));
+        System.out.println("Buy-and-hold return: " + new EnterAndHoldReturnCriterion().calculate(series, tradingRecord));
         // Total profit vs buy-and-hold
         // System.out.println("Custom strategy return vs buy-and-hold strategy return: "
 
@@ -195,8 +204,7 @@ public class AveragePricingStragegy {
 
         System.out.println("Total Profit Loss: " + new ProfitLossCriterion().calculate(series, tradingRecord));
 
-        System.out.println(
-                "Winning positionn: " + new NumberOfWinningPositionsCriterion().calculate(series, tradingRecord));
+        System.out.println("Winning positionn: " + new NumberOfWinningPositionsCriterion().calculate(series, tradingRecord));
         // Getting the winning positions ratio
         AnalysisCriterion winningPositionsRatio = new PositionsRatioCriterion(PositionFilter.PROFIT);
         System.out.println("Winning positions ratio: " + winningPositionsRatio.calculate(series, tradingRecord));

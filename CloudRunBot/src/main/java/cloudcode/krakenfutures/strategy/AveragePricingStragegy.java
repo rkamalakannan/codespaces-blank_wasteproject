@@ -148,10 +148,7 @@ public class AveragePricingStragegy {
     public void execution(Instrument instrument, BigDecimal originalAmount) {
         CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
             try {
-                while (true) {
-                    placeOrder(instrument, originalAmount);
-
-                }
+                while (true) placeOrder(instrument, originalAmount);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

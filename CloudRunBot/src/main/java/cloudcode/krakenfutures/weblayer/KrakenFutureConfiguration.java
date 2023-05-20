@@ -1,13 +1,5 @@
 package cloudcode.krakenfutures.weblayer;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
@@ -29,6 +21,15 @@ import org.knowm.xchange.krakenfutures.service.KrakenFuturesTradeServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndIdParams;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author vscode
@@ -111,6 +112,19 @@ public class KrakenFutureConfiguration {
         return predictedPrice;
     }
 
+
+    public void execute(Instrument instrument, BigDecimal originalAmount) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                while (true) {
+                    placeOrder(instrument, originalAmount);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
         // checkAccount();
         checkOpenOrdersAndCancelFirst(instrument);
@@ -139,8 +153,8 @@ public class KrakenFutureConfiguration {
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
         BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
-//        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getBid().getPrice();
-        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
+        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getBid().getPrice();
+//        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());

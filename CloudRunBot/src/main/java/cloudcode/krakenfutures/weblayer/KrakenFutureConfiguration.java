@@ -46,6 +46,7 @@ public class KrakenFutureConfiguration {
     public static final double SL = 0.5;
     private final Exchange exchange = createExchange();
 
+
     @Autowired
     KrakenSpotConfiguration krakenSpotConfiguration;
 //    @Autowired

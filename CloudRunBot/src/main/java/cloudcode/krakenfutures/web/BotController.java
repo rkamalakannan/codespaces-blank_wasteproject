@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.concurrent.ExecutionException;
 
 
 /**
@@ -41,7 +42,7 @@ public class BotController {
 
     @GetMapping("/v2/execute/{asset}/{originalAmount}")
     public void findAveragePrice(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
-            throws IOException {
+            throws IOException, ExecutionException, InterruptedException {
         Instrument instrument = new CurrencyPair(asset, "USD");
         averagePricingStragegy.execution(instrument, originalAmount);
     }

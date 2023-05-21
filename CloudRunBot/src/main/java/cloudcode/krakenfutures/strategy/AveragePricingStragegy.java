@@ -29,6 +29,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Component
 public class AveragePricingStragegy {
@@ -38,6 +41,9 @@ public class AveragePricingStragegy {
 
     @Autowired
     KrakenFutureConfiguration krakenFutureConfiguration;
+
+    ExecutorService myExecutor = Executors.newFixedThreadPool(2);
+
 
     public KrakenOHLCs getOhlc5m(Instrument instrument) throws IOException {
 
@@ -145,14 +151,18 @@ public class AveragePricingStragegy {
 
     }
 
-    public void execution(Instrument instrument, BigDecimal originalAmount) {
+    public void execution(Instrument instrument, BigDecimal originalAmount) throws ExecutionException, InterruptedException {
         CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
             try {
-                while (true) placeOrder(instrument, originalAmount);
-            } catch (IOException e) {
+                while (true) {
+                    Thread.sleep(Duration.ofSeconds(5).toMillis());
+                    placeOrder(instrument, originalAmount);
+                }
+            } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
-        });
+        }, myExecutor);
+
 
     }
 

@@ -155,7 +155,7 @@ public class AveragePricingStragegy {
         CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
             try {
                 while (true) {
-                    Thread.sleep(Duration.ofSeconds(5).toMillis());
+                    Thread.sleep(Duration.ofSeconds(20).toMillis());
                     placeOrder(instrument, originalAmount);
                 }
             } catch (IOException | InterruptedException e) {

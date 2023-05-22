@@ -161,7 +161,7 @@ public class AveragePricingStragegy {
             } catch (IOException | InterruptedException e) {
                 throw new RuntimeException(e);
             }
-        }, myExecutor);
+        });
 
 
     }

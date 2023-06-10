@@ -15,11 +15,10 @@ import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
 import org.ta4j.core.criteria.pnl.ReturnCriterion;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
+import org.ta4j.core.indicators.ROCIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
 import org.ta4j.core.num.DecimalNum;
-import org.ta4j.core.num.Num;
 import org.ta4j.core.rules.*;
 
 import java.io.IOException;
@@ -105,24 +104,14 @@ public class AveragePricingStragegy {
         RSIIndicator rsiIndicator = new RSIIndicator(closePrice, 14);
 
 
-        SuperTrendIndicator superTrendIndicator = new SuperTrendIndicator(series);
-
-        Indicator<Num> superTrendLowIndicator = superTrendIndicator.getSuperTrendLowerBandIndicator();
-        Indicator<Num> superTrendUpIndicator = superTrendIndicator.getSuperTrendUpperBandIndicator();
-
-        System.out.println("Up" + superTrendUpIndicator.getValue(series.getEndIndex()));
-        System.out.println("Low" + superTrendLowIndicator.getValue(series.getEndIndex()));
-
-        System.out.println("SuperTrendIndicator" + superTrendIndicator.getValue(series.getEndIndex()));
-
-        System.out.println("close" + closePrice.getValue(series.getEndIndex()));
+        ROCIndicator rocIndicator = new ROCIndicator(closePrice, 9);
 
 
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-        Rule entryRule = new OverIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
-        Rule exitRule = new UnderIndicatorRule(superTrendIndicator, closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
+        Rule entryRule = new UnderIndicatorRule(rocIndicator, 0).and(new UnderIndicatorRule(rsiIndicator, 30));
+        Rule exitRule = new OverIndicatorRule(rocIndicator, 0).and(new OverIndicatorRule(rsiIndicator, 70));
 
 
         Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);

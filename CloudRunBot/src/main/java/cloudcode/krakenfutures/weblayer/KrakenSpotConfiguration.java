@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Map;
 
 /**
  * @author vscode
@@ -36,6 +37,8 @@ public class KrakenSpotConfiguration {
         KrakenMarketDataServiceRaw marketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
                 .getMarketDataService();
 
+        java.util.Map<String, KrakenTicker> instruments = marketDataService.getKrakenTickers();
+
         return marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"));
     }
 
@@ -46,5 +49,23 @@ public class KrakenSpotConfiguration {
         ZoneId zoneId = ZoneId.systemDefault();
         long epoch = time.atZone(zoneId).toEpochSecond();
         return krakenMarketDataService.getKrakenOHLC(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"), 1, epoch);
+    }
+
+    public KrakenOHLCs getAssetsOHLCs(Instrument instrument) throws IOException {
+        KrakenExchange krakenExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
+        KrakenMarketDataService krakenMarketDataService = (KrakenMarketDataService) krakenExchange.getMarketDataService();
+        LocalDateTime time = LocalDateTime.now().minusMinutes(1);
+        ZoneId zoneId = ZoneId.systemDefault();
+        long epoch = time.atZone(zoneId).toEpochSecond();
+        return krakenMarketDataService.getKrakenOHLC(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"), 1440, epoch);
+    }
+
+    public Map<String, KrakenTicker> getKrakenAssets() throws IOException {
+        KrakenMarketDataServiceRaw marketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
+                .getMarketDataService();
+
+        Map<String, KrakenTicker> instruments = marketDataService.getKrakenTickers();
+
+        return instruments;
     }
 }

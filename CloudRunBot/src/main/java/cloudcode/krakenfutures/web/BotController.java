@@ -5,6 +5,7 @@
 
 package cloudcode.krakenfutures.web;
 
+import cloudcode.krakenfutures.spotfinder.SpotTradingStrategy;
 import cloudcode.krakenfutures.strategy.AveragePricingStragegy;
 import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
 import org.knowm.xchange.currency.CurrencyPair;
@@ -31,6 +32,9 @@ public class BotController {
     @Autowired
     AveragePricingStragegy averagePricingStragegy;
 
+    @Autowired
+    SpotTradingStrategy spotTradingStrategy;
+
     @GetMapping("/v1/execute/{asset}/{originalAmount}")
     public void executeInstrument(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
             throws IOException {
@@ -45,6 +49,12 @@ public class BotController {
             throws IOException, ExecutionException, InterruptedException {
         Instrument instrument = new CurrencyPair(asset, "USD");
         averagePricingStragegy.execution(instrument, originalAmount);
+    }
+
+    @GetMapping("/v3/execute/{originalAmount}")
+    public void findSpotOrders(@PathVariable BigDecimal originalAmount)
+            throws IOException, ExecutionException, InterruptedException {
+        spotTradingStrategy.executor(originalAmount);
     }
 
 }

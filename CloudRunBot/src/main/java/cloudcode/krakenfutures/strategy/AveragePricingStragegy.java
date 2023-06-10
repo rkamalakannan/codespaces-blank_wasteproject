@@ -15,6 +15,7 @@ import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
 import org.ta4j.core.criteria.pnl.ReturnCriterion;
 import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.MACDIndicator;
+import org.ta4j.core.indicators.ROCIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
@@ -117,12 +118,15 @@ public class AveragePricingStragegy {
 
         System.out.println("close" + closePrice.getValue(series.getEndIndex()));
 
+        ROCIndicator rocIndicator = new ROCIndicator(closePrice, 9);
+
 
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-        Rule entryRule = new OverIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
-        Rule exitRule = new UnderIndicatorRule(superTrendIndicator, closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
+        Rule entryRule = new UnderIndicatorRule(rsiIndicator, 15
+        ).or(new UnderIndicatorRule(rocIndicator, 0));//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
+        Rule exitRule = new OverIndicatorRule(rsiIndicator, 50).or(new OverIndicatorRule(rocIndicator, 0.10));
 
 
         Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);

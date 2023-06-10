@@ -68,14 +68,14 @@ public class SpotTradingStrategy {
         result.forEach(s -> {
             String asset = s.replace("USD", "").trim();
             Instrument instrument = new CurrencyPair(asset, "USD");
-//            CompletableFuture.runAsync(() -> {
-            try {
-                checkAndPlaceOrder(instrument, originalAmount);
-            } catch (IOException | InterruptedException e) {
-                System.out.println("Failed for: " + asset);
-                throw new RuntimeException(e);
-            }
-//            }, myExecutor);
+            CompletableFuture.runAsync(() -> {
+                try {
+                    checkAndPlaceOrder(instrument, originalAmount);
+                } catch (IOException | InterruptedException e) {
+                    System.out.println("Failed for: " + asset);
+                    throw new RuntimeException(e);
+                }
+            }, myExecutor);
 
         });
     }
@@ -87,7 +87,7 @@ public class SpotTradingStrategy {
             System.out.println("Condition Satisfied for Instrument:" + instrument.getBase());
             ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
             Num price = closePrice.getValue(series.getEndIndex());
-            String orderId = placeSIP(instrument, originalAmount, price);
+            String orderId = placeSIP(instrument, price);
         }
 
     }
@@ -127,19 +127,16 @@ public class SpotTradingStrategy {
 
         RSIIndicator rsiIndicator = new RSIIndicator(closePrice, 14);
 
-        System.out.println("Close Price of Instrument " + instrument.getBase() + ": " + closePrice.getValue(series.getEndIndex()));
-
         ROCIndicator rocIndicator = new ROCIndicator(closePrice, 9);
         Rule entryRule = new UnderIndicatorRule(rsiIndicator, 20).and(new UnderIndicatorRule(rocIndicator, 0));
         return entryRule.isSatisfied(series.getEndIndex());
 
     }
 
-    public String placeSIP(Instrument instrument, BigDecimal originalAmount, Num price) throws IOException {
+    public String placeSIP(Instrument instrument, Num price) throws IOException {
         ExchangeSpecification spec = new KrakenExchange().getDefaultExchangeSpecification();
         spec.setSecretKey("qJ+TcfyXWA36m3k5SAX2KKdyWYV5r6ID1tqrpUX3Tn06O4v7T2gQ62F16oHpkNHcV0AVSx6I1ucTjwxMpH46lQ==");
         spec.setApiKey("RbnDnXwmFmdZhhfia3+Z7LFceefn1ZWeoYzpB8n2nGX7bDX8iuKMg1UI");
-        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
         Exchange exchange = ExchangeFactory.INSTANCE.createExchange(spec);
         CurrencyPair currencyPair = new CurrencyPair(instrument.getBase(), instrument.getCounter());
         String orderId = "";
@@ -152,8 +149,9 @@ public class SpotTradingStrategy {
                             .originalAmount(volume)
                             .build());
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.out.println("Failed to place order for " + instrument.getBase().toString() + " " + e.getMessage());
         }
+        System.out.println("Order Placed : " + orderId);
         return orderId;
 
     }

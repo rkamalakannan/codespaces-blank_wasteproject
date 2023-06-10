@@ -52,9 +52,7 @@ public class BotController {
     }
 
     @GetMapping("/v3/execute/{originalAmount}")
-    public void findSpotOrders(@PathVariable BigDecimal originalAmount)
-            throws IOException, ExecutionException, InterruptedException {
+    public void findSpotOrders(@PathVariable BigDecimal originalAmount) {
         spotTradingStrategy.executor(originalAmount);
     }
-
 }

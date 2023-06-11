@@ -43,7 +43,7 @@ import java.util.Set;
 @Component
 public class KrakenFutureConfiguration {
 
-    public static final double SL = 0.4;
+    public static final double SL = 0.3;
     private final Exchange exchange = createExchange();
 
 
@@ -54,18 +54,25 @@ public class KrakenFutureConfiguration {
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-       spec.setApiKey("9uJBCOFWib8xnSfGIUnK5WyoHkdvJ/n0soLSgcAKilKNmF289B4A3myC");
-       spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
-//         spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
-//         spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
+        spec.setApiKey("9uJBCOFWib8xnSfGIUnK5WyoHkdvJ/n0soLSgcAKilKNmF289B4A3myC");
+        spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
+//        spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
+//        spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
+        spec.setHost("https://api.futures.kraken.com/derivatives");
         spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, false);
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 
     public KrakenFuturesTicker getTickers(Instrument instrument) throws IOException {
-        KrakenFuturesMarketDataServiceRaw marketDataService = (KrakenFuturesMarketDataServiceRaw) exchange
-                .getMarketDataService();
-        return marketDataService.getKrakenFuturesTicker(instrument);
+        KrakenFuturesMarketDataServiceRaw marketDataService = null;
+        try {
+            marketDataService = (KrakenFuturesMarketDataServiceRaw) exchange
+                    .getMarketDataService();
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+        }
+
+        return marketDataService != null ? marketDataService.getKrakenFuturesTicker(instrument) : null;
     }
 
 //    public void placeOrder1(Instrument instrument, BigDecimal originalAmount)
@@ -141,8 +148,6 @@ public class KrakenFutureConfiguration {
         checkOpenOrdersAndCancelFirst(instrument);
         BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
         BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getClose().getPrice();
-
-
         if (buyRule.isSatisfied(series.getEndIndex())) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
@@ -150,13 +155,13 @@ public class KrakenFutureConfiguration {
             if (!Objects.equals(openPositionAmount, BigDecimal.ZERO) && !triggerOrderType.equals("ASK")) {
                 originalAmount = openPositionAmount;
             }
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
-                    krakenFutureLastValue,
+//            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
+//                    krakenFutureLastValue,
+//                    openPositionsList);
+//            if (marketOrderId.isEmpty()) {
+            placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                     openPositionsList);
-            if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
-                        openPositionsList);
-            }
+//            }
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType,
                     krakenSpotLastValue);
         } else if (sellRule.isSatisfied(series.getEndIndex())) {
@@ -166,13 +171,13 @@ public class KrakenFutureConfiguration {
             if (!Objects.equals(openPositionAmount, BigDecimal.ZERO) && !triggerOrderType.equals("BID")) {
                 originalAmount = openPositionAmount;
             }
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
-                    krakenFutureLastValue,
+//            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
+//                    krakenFutureLastValue,
+//                    openPositionsList);
+//            if (marketOrderId.isEmpty()) {
+            placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                     openPositionsList);
-            if (marketOrderId.isEmpty()) {
-                placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
-                        openPositionsList);
-            }
+//            }
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType,
                     krakenSpotLastValue);
         } else {

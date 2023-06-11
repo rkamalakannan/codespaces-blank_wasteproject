@@ -2,10 +2,12 @@ package cloudcode.krakenfutures.strategy;
 
 import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
 import cloudcode.krakenfutures.weblayer.KrakenSpotConfiguration;
+import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLC;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.*;
 import org.ta4j.core.AnalysisCriterion.PositionFilter;
@@ -111,7 +113,7 @@ public class AveragePricingStragegy {
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
         Rule entryRule = new UnderIndicatorRule(rocIndicator, 0).and(new UnderIndicatorRule(rsiIndicator, 30));
-        Rule exitRule = new OverIndicatorRule(rocIndicator, 0).and(new OverIndicatorRule(rsiIndicator, 70));
+        Rule exitRule = new OverIndicatorRule(rocIndicator, 0).and(new OverIndicatorRule(rsiIndicator, 50));
 
 
         Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);
@@ -140,14 +142,16 @@ public class AveragePricingStragegy {
 
     }
 
-    public void execution(Instrument instrument, BigDecimal originalAmount) throws ExecutionException, InterruptedException {
+    @Scheduled(cron = "*/10 * * * *")
+    public void execution() throws ExecutionException, InterruptedException {
+        Instrument instrument = new CurrencyPair("ETH", "USD");//set currency pair here
+        BigDecimal originalAmount = BigDecimal.valueOf(0.01); // set volume here
         CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
             try {
-                while (true) {
-                    Thread.sleep(Duration.ofSeconds(20).toMillis());
-                    placeOrder(instrument, originalAmount);
-                }
-            } catch (IOException | InterruptedException e) {
+//                    Thread.sleep(Duration.ofSeconds(20).toMillis());
+                placeOrder(instrument, originalAmount);
+
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });

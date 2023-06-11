@@ -44,7 +44,7 @@ public class BotController {
     public void findAveragePrice(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
             throws IOException, ExecutionException, InterruptedException {
         Instrument instrument = new CurrencyPair(asset, "USD");
-        averagePricingStragegy.execution(instrument, originalAmount);
+//        averagePricingStragegy.execution(instrument, originalAmount);
     }
 
 }

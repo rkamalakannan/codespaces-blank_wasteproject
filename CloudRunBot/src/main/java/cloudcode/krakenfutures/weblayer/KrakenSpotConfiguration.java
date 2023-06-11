@@ -33,10 +33,17 @@ public class KrakenSpotConfiguration {
     }
 
     public KrakenTicker getKrakenSpotTicker(Instrument instrument) throws IOException {
-        KrakenMarketDataServiceRaw marketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
-                .getMarketDataService();
+        KrakenMarketDataServiceRaw marketDataService = null;
+        try {
+            marketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
+                    .getMarketDataService();
 
-        return marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"));
+        } catch (Exception ex) {
+            System.out.println(ex.getMessage());
+
+        }
+
+        return marketDataService != null ? marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD")) : null;
     }
 
     public KrakenOHLCs getKrakenOHLCs(Instrument instrument) throws IOException {

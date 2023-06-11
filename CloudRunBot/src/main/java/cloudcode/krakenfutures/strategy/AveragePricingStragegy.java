@@ -112,7 +112,7 @@ public class AveragePricingStragegy {
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-        Rule entryRule = new UnderIndicatorRule(rocIndicator, 0).and(new UnderIndicatorRule(rsiIndicator, 30));
+        Rule entryRule = new UnderIndicatorRule(rocIndicator, 0).and(new UnderIndicatorRule(rsiIndicator, 31));
         Rule exitRule = new OverIndicatorRule(rocIndicator, 0).and(new OverIndicatorRule(rsiIndicator, 50));
 
 
@@ -142,7 +142,7 @@ public class AveragePricingStragegy {
 
     }
 
-    @Scheduled(cron = "*/10 * * * *")
+    @Scheduled(cron = "*/10 * * * * *")
     public void execution() throws ExecutionException, InterruptedException {
         Instrument instrument = new CurrencyPair("ETH", "USD");//set currency pair here
         BigDecimal originalAmount = BigDecimal.valueOf(0.01); // set volume here

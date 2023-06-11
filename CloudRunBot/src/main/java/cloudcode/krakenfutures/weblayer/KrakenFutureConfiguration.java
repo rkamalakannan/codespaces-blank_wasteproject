@@ -3,6 +3,7 @@ package cloudcode.krakenfutures.weblayer;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
+import org.knowm.xchange.currency.CurrencyPair;
 import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.account.AccountInfo;
 import org.knowm.xchange.dto.account.OpenPosition;
@@ -20,6 +21,7 @@ import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataServiceRaw
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesTradeServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndIdParams;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -113,12 +115,14 @@ public class KrakenFutureConfiguration {
     }
 
 
-    public void execute(Instrument instrument, BigDecimal originalAmount) {
+    @Scheduled(cron = "*/60 * * * * *")
+    public void execute() {
+        Instrument instrument = new CurrencyPair("BCH", "USD");//set currency pair here
+        BigDecimal originalAmount = BigDecimal.valueOf(100);
         CompletableFuture.runAsync(() -> {
             try {
-                while (true) {
-                    placeOrder(instrument, originalAmount);
-                }
+                placeOrder(instrument, originalAmount);
+
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -153,8 +157,8 @@ public class KrakenFutureConfiguration {
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
 
         BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
-        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getBid().getPrice();
-//        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
+//        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getBid().getPrice();
+        BigDecimal krakenSpotLastValue = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast();
 
         System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
         System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
@@ -163,13 +167,13 @@ public class KrakenFutureConfiguration {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
 
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
-                    krakenFutureLastValue,
-                    openPositionsList);
-            if (marketOrderId.isEmpty()) {
+//            String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID",
+//                    krakenFutureLastValue,
+//                    openPositionsList);
+//            if (marketOrderId.isEmpty()) {
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
-            }
+//            }
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
                     krakenFutureLastValue, profitLimitPricePredicted);
 
@@ -177,13 +181,13 @@ public class KrakenFutureConfiguration {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
 
-            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
-                    krakenFutureLastValue,
-                    openPositionsList);
-            if (marketOrderId.isEmpty()) {
+//            String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK",
+//                    krakenFutureLastValue,
+//                    openPositionsList);
+//            if (marketOrderId.isEmpty()) {
                 placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
-            }
+//            }
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType, openPositionPrice,
                     krakenSpotLastValue, profitLimitPricePredicted);
         } else {

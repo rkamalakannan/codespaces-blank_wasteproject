@@ -170,7 +170,7 @@ public class AveragePricingStragegy {
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-//        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, 0).or(new CrossedUpIndicatorRule(rsiIndicator, 30));
+//        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, 0).or(new CrossedUpIndicatorRule(rsiIndicator, 31));
 //        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, 0).or(new CrossedDownIndicatorRule(rsiIndicator, 55));
 
 //        Rule entryRule = new CrossedUpIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b

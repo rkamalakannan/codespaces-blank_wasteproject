@@ -5,6 +5,8 @@
 
 package cloudcode.krakenfutures.web;
 
+import cloudcode.krakenfutures.models.Candle;
+import cloudcode.krakenfutures.models.Root;
 import cloudcode.krakenfutures.strategy.AveragePricingStragegy;
 import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
 import org.knowm.xchange.currency.CurrencyPair;
@@ -45,6 +47,14 @@ public class BotController {
             throws IOException, ExecutionException, InterruptedException {
         Instrument instrument = new CurrencyPair(asset, "USD");
 //        averagePricingStragegy.execution(instrument, originalAmount);
+    }
+
+
+    @GetMapping("/v3/execute/{asset}/{originalAmount}")
+    public Root getKrakenFuturesCandle(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
+            throws IOException, ExecutionException, InterruptedException {
+        Instrument instrument = new CurrencyPair(asset, "USD");
+        return krakenConfiguration.getKrakenFuturesOHLCs(instrument);
     }
 
 }

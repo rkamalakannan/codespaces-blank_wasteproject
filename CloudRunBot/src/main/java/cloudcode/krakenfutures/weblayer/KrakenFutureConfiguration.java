@@ -5,6 +5,8 @@
 
 package cloudcode.krakenfutures.weblayer;
 
+import cloudcode.krakenfutures.models.Candle;
+import cloudcode.krakenfutures.models.Root;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
@@ -17,6 +19,8 @@ import org.knowm.xchange.dto.trade.MarketOrder;
 import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
+import org.knowm.xchange.kraken.KrakenExchange;
+import org.knowm.xchange.kraken.service.KrakenMarketDataService;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOpenPosition;
@@ -25,13 +29,18 @@ import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataServiceRaw
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesTradeServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndIdParams;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.ta4j.core.BarSeries;
 import org.ta4j.core.Rule;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -43,8 +52,18 @@ import java.util.Set;
 @Component
 public class KrakenFutureConfiguration {
 
-    public static final double SL = 0.3;
+    public static final double SL = 0.02;
+    public static final double PROFIT_PERCENTAGE = 0.03;
+    private static final String MULTI_COLLATERAL_PRODUCTS = "pf_";
     private final Exchange exchange = createExchange();
+
+    private final WebClient client;
+
+    public KrakenFutureConfiguration(WebClient.Builder builder) {
+        this.client = builder.baseUrl("https://demo-futures.kraken.com/api").build();
+    }
+
+
 
 
     @Autowired
@@ -54,12 +73,12 @@ public class KrakenFutureConfiguration {
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-        spec.setApiKey("9uJBCOFWib8xnSfGIUnK5WyoHkdvJ/n0soLSgcAKilKNmF289B4A3myC");
-        spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
-//        spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
-//        spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
-        spec.setHost("https://api.futures.kraken.com/derivatives");
-        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, false);
+//        spec.setApiKey("9uJBCOFWib8xnSfGIUnK5WyoHkdvJ/n0soLSgcAKilKNmF289B4A3myC");
+//        spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
+        spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
+        spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
+//        spec.setHost("https://api.futures.kraken.com/derivatives");
+        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 
@@ -164,6 +183,7 @@ public class KrakenFutureConfiguration {
 //            }
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType,
                     krakenSpotLastValue);
+
         } else if (sellRule.isSatisfied(series.getEndIndex())) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
@@ -183,8 +203,8 @@ public class KrakenFutureConfiguration {
         } else {
             System.out.println("Initial Condition Failed!!");
             if (!triggerOrderType.isEmpty()) {
-                placeStopOrder(instrument, originalAmount, triggerOrderType,
-                        krakenSpotLastValue, openPositionsList);
+                triggerOrders(instrument, originalAmount, openPositionsList,
+                        triggerOrderType, krakenSpotLastValue);
             }
         }
     }
@@ -194,6 +214,8 @@ public class KrakenFutureConfiguration {
 
         placeStopOrder(instrument, originalAmount, triggerOrderType,
                 krakenSpotLastValue, openPositionsList);
+        takeOnePercent(instrument, originalAmount, triggerOrderType, krakenSpotLastValue, openPositionsList);
+
         // placeTakeProfitPostValidation(instrument, originalAmount, openPositionsList,
         // triggerOrderType,
         // openPositionPrice,
@@ -211,11 +233,11 @@ public class KrakenFutureConfiguration {
                 String type = openPosition.getType().name();
                 if (krakenSpotLastValue.compareTo(openPositionPrice) > 0
                         && type.equals("LONG"))
-                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue,
+                    takeOnePercent(instrument, originalAmount, triggerOrderType, krakenSpotLastValue,
                             openPositionsList);
                 else if (krakenSpotLastValue.compareTo(openPositionPrice) < 0
                         && type.equals("SHORT")) {
-                    placeTakeProfitOrder(instrument, originalAmount, triggerOrderType, krakenSpotLastValue,
+                    takeOnePercent(instrument, originalAmount, triggerOrderType, krakenSpotLastValue,
                             openPositionsList);
                 }
             } else {
@@ -352,6 +374,8 @@ public class KrakenFutureConfiguration {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
+                    originalAmount = openPosition.getSize();
+
                 }
             }
             stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(SL / 100.0)));
@@ -378,6 +402,65 @@ public class KrakenFutureConfiguration {
             System.out.println(e.getMessage());
         }
 
+    }
+
+
+    public void takeOnePercent(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
+                               List<OpenPosition> openPositionsList) {
+
+        System.out.println("Inside Take One Percent and Exit");
+
+
+        OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
+                .getCurrencyCode().contains(instrument.getBase().getCurrencyCode())).findAny().orElse(null);
+
+        BigDecimal profitPrice;
+        if (bidType.equals("ASK")) {
+            if (openPositionsList.size() > 0) {
+                if (openPosition != null) {
+                    price = openPosition.getPrice();
+                    originalAmount = openPosition.getSize();
+                }
+            }
+            profitPrice = price.plus().add(price.multiply(BigDecimal.valueOf(PROFIT_PERCENTAGE / 100.0)));
+        } else {
+            if (openPositionsList.size() > 0) {
+                if (openPosition != null) {
+                    price = openPosition.getPrice();
+                    originalAmount = openPosition.getSize();
+
+                }
+            }
+            profitPrice = price.subtract(price.multiply(BigDecimal.valueOf(PROFIT_PERCENTAGE / 100.0)));
+        }
+
+        price = priceDecimalPrecision(instrument, profitPrice);
+
+        System.out.println("Profit Price :" +price);
+
+        boolean isAllowedTrade = isAllowedTrade(bidType, openPositionsList, price, instrument);
+
+        try {
+            System.out.println("Take Profit Order should be placed:" + isAllowedTrade);
+
+            if (isAllowedTrade) {
+                String orderId = exchange.getTradeService()
+                        .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
+                                .intention(StopOrder.Intention.TAKE_PROFIT)
+                                .limitPrice(price)
+                                .stopPrice(price)
+                                .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
+                                .originalAmount(originalAmount)
+                                .build());
+                System.out.println(
+                        "Placed Take Profit instrument" + instrument.getBase().getCurrencyCode() + bidType + "for value"
+                                + price
+                                + "with order id :" + orderId);
+            }
+
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
 
     public void placeTakeProfitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
@@ -506,6 +589,27 @@ public class KrakenFutureConfiguration {
             System.out.println(openPosition);
         }
         return openPositions;
+    }
+
+    public Root getKrakenFuturesOHLCs(Instrument instrument) throws IOException {
+
+        String symbol =  MULTI_COLLATERAL_PRODUCTS+instrument.getBase().toString().replace("BTC","XBT").toLowerCase()+instrument.getCounter().toString().toLowerCase();
+//        https://demo-futures.kraken.com/api/charts/v1/mark/pi_xbtusd/1m/?from=1686929707&to=1687016107
+
+        LocalDateTime time = LocalDateTime.now().minusDays(1);
+        ZoneId zoneId = ZoneId.systemDefault();
+        long from = time.atZone(zoneId).toEpochSecond();
+        long to = ZonedDateTime.now().toEpochSecond();
+
+        String resolution = "1m";
+
+
+        return this.client.get()
+                .uri("/charts/v1/mark/{instrument}/{resolution}/?from={from}&to={to}", symbol, resolution, from, to)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(Root.class)
+                .block();
     }
 
 }

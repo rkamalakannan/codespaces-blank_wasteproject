@@ -1,5 +1,6 @@
 package cloudcode.krakenfutures;
 
+import cloudcode.krakenfutures.strategy.AveragePricingStragegy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;

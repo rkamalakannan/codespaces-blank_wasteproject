@@ -1,11 +1,18 @@
 package cloudcode.krakenfutures.strategy;
 
+import cloudcode.krakenfutures.models.Candle;
+import cloudcode.krakenfutures.models.Root;
 import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
 import cloudcode.krakenfutures.weblayer.KrakenSpotConfiguration;
+import info.bitrich.xchangestream.core.StreamingExchange;
+import info.bitrich.xchangestream.core.StreamingExchangeFactory;
+import info.bitrich.xchangestream.krakenfutures.KrakenFuturesStreamingExchange;
+import io.reactivex.disposables.Disposable;
+import org.knowm.xchange.Exchange;
+import org.knowm.xchange.ExchangeSpecification;
 import org.knowm.xchange.currency.CurrencyPair;
+import org.knowm.xchange.derivative.FuturesContract;
 import org.knowm.xchange.instrument.Instrument;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLC;
-import org.knowm.xchange.kraken.dto.marketdata.KrakenOHLCs;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -20,8 +27,11 @@ import org.ta4j.core.indicators.MACDIndicator;
 import org.ta4j.core.indicators.ROCIndicator;
 import org.ta4j.core.indicators.RSIIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
 import org.ta4j.core.num.DecimalNum;
-import org.ta4j.core.rules.*;
+import org.ta4j.core.rules.CrossedDownIndicatorRule;
+import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.TrailingStopLossRule;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -46,20 +56,67 @@ public class AveragePricingStragegy {
     ExecutorService myExecutor = Executors.newFixedThreadPool(2);
 
 
-    public KrakenOHLCs getOhlc5m(Instrument instrument) throws IOException {
+    public Root getOhlc5m(Instrument instrument) throws IOException {
 
-        return krakenSpotConfiguration.getKrakenOHLCs(instrument);
+        return krakenFutureConfiguration.getKrakenFuturesOHLCs(instrument);
 
     }
+
+    public void liveSeries(Instrument instrument, BigDecimal originalAmount) {
+
+        ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesStreamingExchange.class);
+//        spec.setApiKey("9uJBCOFWib8xnSfGIUnK5WyoHkdvJ/n0soLSgcAKilKNmF289B4A3myC");
+//        spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
+        spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
+        spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
+        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
+        StreamingExchange exchange = StreamingExchangeFactory.INSTANCE.createExchange(spec);
+        exchange.connect().blockingAwait();
+        instrument = new FuturesContract(instrument.getBase() + "/USD/PERP");
+        BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(200).build();
+        Instrument finalInstrument = instrument;
+        series.addBar(Duration.ofSeconds(1), ZonedDateTime.now(),
+                0, 0, 0, 0, 0);
+        Disposable subscription1 = exchange.getStreamingMarketDataService()
+                .getTicker(instrument)
+                .subscribe(
+                        trade -> {
+                            System.out.println("trade = " + trade);
+                            ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(trade.getTimestamp().toInstant(),
+                                    ZoneId.systemDefault());
+                            if (zonedDateTime.isAfter(series.getLastBar().getEndTime())) {
+                                series.addBar(Duration.ofSeconds(1), zonedDateTime,
+                                        trade.getLast(), trade.getLast(), trade.getLast(), trade.getLast(), trade.getVolume());
+                                buildStrategy(series, finalInstrument, originalAmount);
+                            }
+                        });
+
+
+    }
+
+//    public BarSeries createBarSeries(Instrument instrument) {
+//
+//        BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(200).build();
+//        try {
+//            KrakenOHLCs krakenOHLCs = getOhlc5m(instrument);
+//            for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
+//                BaseBar bar = new BaseBar(Duration.ofMinutes(1), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getOpen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), krakenOHLC.getVolume());
+//                series.addBar(bar);
+//
+//            }
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        return series;
+//    }
 
     public BarSeries createBarSeries(Instrument instrument) {
 
         BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(Integer.MAX_VALUE).build();
-
         try {
-            KrakenOHLCs krakenOHLCs = getOhlc5m(instrument);
-            for (KrakenOHLC krakenOHLC : krakenOHLCs.getOHLCs()) {
-                BaseBar bar = new BaseBar(Duration.ofMinutes(1), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getOpen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), krakenOHLC.getVolume());
+            Root krakenOHLCs = getOhlc5m(instrument);
+            for (Candle krakenOHLC : krakenOHLCs.getCandles()) {
+                BaseBar bar = new BaseBar(Duration.ofMinutes(1), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getMyopen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), String.valueOf(krakenOHLC.getVolume()));
                 series.addBar(bar);
 
             }
@@ -85,44 +142,71 @@ public class AveragePricingStragegy {
     // }
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
-        BarSeries series = createBarSeries(instrument);
-//        backTesting(instrument, originalAmount, series);
+        final BarSeries series = createBarSeries(instrument);
+        backTesting(instrument, originalAmount, series);
+
 
         // Building the trading strategy
-        buildStrategy(series, instrument, originalAmount);
+//        buildStrategy(series, instrument, originalAmount);
     }
 
     public Strategy buildStrategy(BarSeries series, Instrument instrument, BigDecimal originalAmount) throws IOException {
+
         if (series == null) {
             throw new IllegalArgumentException("Series cannot be null");
         }
         ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
-
         MACDIndicator macd = new MACDIndicator(closePrice);
-
         EMAIndicator emaMacd = new EMAIndicator(macd, 9);
-
-
         RSIIndicator rsiIndicator = new RSIIndicator(closePrice, 14);
-
-
         ROCIndicator rocIndicator = new ROCIndicator(closePrice, 9);
+        SuperTrendIndicator superTrendIndicator = new SuperTrendIndicator(series);
+        System.out.println(rocIndicator.getValue(series.getEndIndex()));
+        System.out.println(rsiIndicator.getValue(series.getEndIndex()));
+        System.out.println("closePrice = " + closePrice.getValue(series.getEndIndex()));
+        System.out.println("superTrendIndicator = " + superTrendIndicator.getValue(series.getEndIndex()));
 
 
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-        Rule entryRule = new UnderIndicatorRule(rocIndicator, 0).and(new UnderIndicatorRule(rsiIndicator, 30));
-        Rule exitRule = new OverIndicatorRule(rocIndicator, 0).and(new OverIndicatorRule(rsiIndicator, 50));
+//        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, 0).or(new CrossedUpIndicatorRule(rsiIndicator, 30));
+//        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, 0).or(new CrossedDownIndicatorRule(rsiIndicator, 55));
+
+//        Rule entryRule = new CrossedUpIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
+//        Rule exitRule = new CrossedDownIndicatorRule(superTrendIndicator, closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
+
+
+        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, rsiIndicator);
+        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, rsiIndicator);
+
+//        Rule entryRule = new CrossedUpIndicatorRule(superTrendIndicator, closePrice);
+//        Rule exitRule = new CrossedDownIndicatorRule(superTrendIndicator, closePrice);
 
 
         Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);
         Rule macdExitRule = new CrossedDownIndicatorRule(macd, emaMacd);
 
+
         System.out.println("Entry Rule Satisfied:" + entryRule.isSatisfied(series.getEndIndex()));
         System.out.println("Exit Rule Satisified:" + exitRule.isSatisfied(series.getEndIndex()));
+        System.setProperty("java.awt.headless", "false");
 
-        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
+//        TacChartBuilder.of(barseries, Theme.DARK)//        TacChartBuilder.of(barseries)
+//                .withIndicator(
+//                        IndicatorConfiguration.Builder.of(rocIndicator)
+//                                .name("Short Ema")
+//                                .plotType(PlotType.OVERLAY)
+//                                .chartType(ChartType.LINE)
+//                                .color(Color.BLUE))
+//                .withIndicator(IndicatorConfiguration.Builder.of(rocIndicator)
+//                        .name("Short Ema")
+//                        .plotType(PlotType.OVERLAY)
+//                        .chartType(ChartType.LINE)
+//                        .color(Color.RED))
+//                .buildAndShow();
+
+//        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.
@@ -142,10 +226,10 @@ public class AveragePricingStragegy {
 
     }
 
-    @Scheduled(cron = "*/10 * * * *")
+    @Scheduled(cron = "*/20 * * * * *")
     public void execution() throws ExecutionException, InterruptedException {
-        Instrument instrument = new CurrencyPair("ETH", "USD");//set currency pair here
-        BigDecimal originalAmount = BigDecimal.valueOf(0.01); // set volume here
+        Instrument instrument = new CurrencyPair("BCH", "USD");//set currency pair here
+        BigDecimal originalAmount = BigDecimal.valueOf(100); // set volume here
         CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
             try {
 //                    Thread.sleep(Duration.ofSeconds(20).toMillis());

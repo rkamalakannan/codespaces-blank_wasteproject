@@ -143,11 +143,11 @@ public class AveragePricingStragegy {
 
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
         final BarSeries series = createBarSeries(instrument);
-        backTesting(instrument, originalAmount, series);
+//        backTesting(instrument, originalAmount, series);
 
 
         // Building the trading strategy
-//        buildStrategy(series, instrument, originalAmount);
+        buildStrategy(series, instrument, originalAmount);
     }
 
     public Strategy buildStrategy(BarSeries series, Instrument instrument, BigDecimal originalAmount) throws IOException {
@@ -165,20 +165,21 @@ public class AveragePricingStragegy {
         System.out.println(rsiIndicator.getValue(series.getEndIndex()));
         System.out.println("closePrice = " + closePrice.getValue(series.getEndIndex()));
         System.out.println("superTrendIndicator = " + superTrendIndicator.getValue(series.getEndIndex()));
+        System.out.println("series.getLastBar() = " + series.getLastBar());
 
 
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-//        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, 0).or(new CrossedUpIndicatorRule(rsiIndicator, 31));
-//        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, 0).or(new CrossedDownIndicatorRule(rsiIndicator, 55));
+        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, 0).or(new CrossedUpIndicatorRule(rsiIndicator, 31));
+        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, 0).or(new CrossedDownIndicatorRule(rsiIndicator, 55));
 
 //        Rule entryRule = new CrossedUpIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
 //        Rule exitRule = new CrossedDownIndicatorRule(superTrendIndicator, closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
 
 
-        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, rsiIndicator);
-        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, rsiIndicator);
+//        Rule entryRule = new CrossedUpIndicatorRule(rsiIndicator, rocIndicator);
+//        Rule exitRule = new CrossedDownIndicatorRule(rsiIndicator, rocIndicator);
 
 //        Rule entryRule = new CrossedUpIndicatorRule(superTrendIndicator, closePrice);
 //        Rule exitRule = new CrossedDownIndicatorRule(superTrendIndicator, closePrice);
@@ -206,7 +207,7 @@ public class AveragePricingStragegy {
 //                        .color(Color.RED))
 //                .buildAndShow();
 
-//        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
+        krakenFutureConfiguration.placeOrder(instrument, originalAmount, entryRule, exitRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.

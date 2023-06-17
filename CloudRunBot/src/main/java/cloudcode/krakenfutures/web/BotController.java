@@ -5,7 +5,6 @@
 
 package cloudcode.krakenfutures.web;
 
-import cloudcode.krakenfutures.models.Candle;
 import cloudcode.krakenfutures.models.Root;
 import cloudcode.krakenfutures.strategy.AveragePricingStragegy;
 import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;

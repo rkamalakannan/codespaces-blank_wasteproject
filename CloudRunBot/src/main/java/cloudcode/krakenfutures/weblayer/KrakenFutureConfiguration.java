@@ -5,7 +5,6 @@
 
 package cloudcode.krakenfutures.weblayer;
 
-import cloudcode.krakenfutures.models.Candle;
 import cloudcode.krakenfutures.models.Root;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
@@ -19,8 +18,6 @@ import org.knowm.xchange.dto.trade.MarketOrder;
 import org.knowm.xchange.dto.trade.OpenOrders;
 import org.knowm.xchange.dto.trade.StopOrder;
 import org.knowm.xchange.instrument.Instrument;
-import org.knowm.xchange.kraken.KrakenExchange;
-import org.knowm.xchange.kraken.service.KrakenMarketDataService;
 import org.knowm.xchange.krakenfutures.KrakenFuturesExchange;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOpenPosition;
@@ -58,16 +55,13 @@ public class KrakenFutureConfiguration {
     private final Exchange exchange = createExchange();
 
     private final WebClient client;
+    @Autowired
+    KrakenSpotConfiguration krakenSpotConfiguration;
+
 
     public KrakenFutureConfiguration(WebClient.Builder builder) {
         this.client = builder.baseUrl("https://demo-futures.kraken.com/api").build();
     }
-
-
-
-
-    @Autowired
-    KrakenSpotConfiguration krakenSpotConfiguration;
 //    @Autowired
 //    CryptoWatchConfiguration cryptoWatchConfiguration;
 
@@ -436,7 +430,7 @@ public class KrakenFutureConfiguration {
 
         price = priceDecimalPrecision(instrument, profitPrice);
 
-        System.out.println("Profit Price :" +price);
+        System.out.println("Profit Price :" + price);
 
         boolean isAllowedTrade = isAllowedTrade(bidType, openPositionsList, price, instrument);
 
@@ -593,7 +587,7 @@ public class KrakenFutureConfiguration {
 
     public Root getKrakenFuturesOHLCs(Instrument instrument) throws IOException {
 
-        String symbol =  MULTI_COLLATERAL_PRODUCTS+instrument.getBase().toString().replace("BTC","XBT").toLowerCase()+instrument.getCounter().toString().toLowerCase();
+        String symbol = MULTI_COLLATERAL_PRODUCTS + instrument.getBase().toString().replace("BTC", "XBT").toLowerCase() + instrument.getCounter().toString().toLowerCase();
 //        https://demo-futures.kraken.com/api/charts/v1/mark/pi_xbtusd/1m/?from=1686929707&to=1687016107
 
         LocalDateTime time = LocalDateTime.now().minusDays(1);

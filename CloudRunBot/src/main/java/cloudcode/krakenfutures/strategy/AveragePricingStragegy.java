@@ -47,13 +47,17 @@ import java.util.concurrent.Executors;
 @Component
 public class AveragePricingStragegy {
 
+    public static final int LTC_AMOUNT = 1;
+    public static final double BTC_AMOUNT = 0.01;
+    public static final int ETH_AMOUNT = 1;
+    public static final int BCH_AMOUNT = 2;
     @Autowired
     KrakenSpotConfiguration krakenSpotConfiguration;
 
     @Autowired
     KrakenFutureConfiguration krakenFutureConfiguration;
 
-    ExecutorService myExecutor = Executors.newFixedThreadPool(2);
+    ExecutorService myExecutor = Executors.newFixedThreadPool(BCH_AMOUNT);
 
 
     public Root getOhlc5m(Instrument instrument) throws IOException {
@@ -75,7 +79,7 @@ public class AveragePricingStragegy {
         instrument = new FuturesContract(instrument.getBase() + "/USD/PERP");
         BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(200).build();
         Instrument finalInstrument = instrument;
-        series.addBar(Duration.ofSeconds(1), ZonedDateTime.now(),
+        series.addBar(Duration.ofSeconds(LTC_AMOUNT), ZonedDateTime.now(),
                 0, 0, 0, 0, 0);
         Disposable subscription1 = exchange.getStreamingMarketDataService()
                 .getTicker(instrument)
@@ -85,7 +89,7 @@ public class AveragePricingStragegy {
                             ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(trade.getTimestamp().toInstant(),
                                     ZoneId.systemDefault());
                             if (zonedDateTime.isAfter(series.getLastBar().getEndTime())) {
-                                series.addBar(Duration.ofSeconds(1), zonedDateTime,
+                                series.addBar(Duration.ofSeconds(LTC_AMOUNT), zonedDateTime,
                                         trade.getLast(), trade.getLast(), trade.getLast(), trade.getLast(), trade.getVolume());
                                 buildStrategy(series, finalInstrument, originalAmount);
                             }
@@ -116,7 +120,7 @@ public class AveragePricingStragegy {
         try {
             Root krakenOHLCs = getOhlc5m(instrument);
             for (Candle krakenOHLC : krakenOHLCs.getCandles()) {
-                BaseBar bar = new BaseBar(Duration.ofMinutes(1), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getMyopen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), String.valueOf(krakenOHLC.getVolume()));
+                BaseBar bar = new BaseBar(Duration.ofMinutes(LTC_AMOUNT), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getMyopen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), String.valueOf(krakenOHLC.getVolume()));
                 series.addBar(bar);
 
             }
@@ -161,18 +165,11 @@ public class AveragePricingStragegy {
         RSIIndicator rsiIndicator = new RSIIndicator(closePrice, 14);
         ROCIndicator rocIndicator = new ROCIndicator(closePrice, 9);
         SuperTrendIndicator superTrendIndicator = new SuperTrendIndicator(series);
-        System.out.println(rocIndicator.getValue(series.getEndIndex()));
-        System.out.println(rsiIndicator.getValue(series.getEndIndex()));
-        System.out.println("closePrice = " + closePrice.getValue(series.getEndIndex()));
-        System.out.println("superTrendIndicator = " + superTrendIndicator.getValue(series.getEndIndex()));
-        System.out.println("series.getLastBar() = " + series.getLastBar());
-
-
         // Entry rule
         // A buy signal is generated when the ‘Supertrend’ closes above the price 
         //and a sell signal is generated when it closes below the closing price.
-        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, 0).or(new CrossedUpIndicatorRule(rsiIndicator, 31));
-        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, 0).or(new CrossedDownIndicatorRule(rsiIndicator, 55));
+//        Rule entryRule = new CrossedUpIndicatorRule(rocIndicator, 0).or(new CrossedUpIndicatorRule(rsiIndicator, 31));
+//        Rule exitRule = new CrossedDownIndicatorRule(rocIndicator, 0).or(new CrossedDownIndicatorRule(rsiIndicator, 65));
 
 //        Rule entryRule = new CrossedUpIndicatorRule(superTrendIndicator, closePrice);//.or(new IsRisingRule(superTrendLowIndicator, 2)); //a > b
 //        Rule exitRule = new CrossedDownIndicatorRule(superTrendIndicator, closePrice);//.or(new IsFallingRule(superTrendUpIndicator, 2)); //a < b
@@ -181,8 +178,8 @@ public class AveragePricingStragegy {
 //        Rule entryRule = new CrossedUpIndicatorRule(rsiIndicator, rocIndicator);
 //        Rule exitRule = new CrossedDownIndicatorRule(rsiIndicator, rocIndicator);
 
-//        Rule entryRule = new CrossedUpIndicatorRule(superTrendIndicator, closePrice);
-//        Rule exitRule = new CrossedDownIndicatorRule(superTrendIndicator, closePrice);
+        Rule entryRule = new CrossedUpIndicatorRule(closePrice, superTrendIndicator);
+        Rule exitRule = new CrossedDownIndicatorRule(closePrice, superTrendIndicator);
 
 
         Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);
@@ -227,10 +224,10 @@ public class AveragePricingStragegy {
 
     }
 
-    @Scheduled(cron = "*/20 * * * * *")
+    @Scheduled(cron = "*/5 * * * * *")
     public void execution() throws ExecutionException, InterruptedException {
         Instrument instrument = new CurrencyPair("BCH", "USD");//set currency pair here
-        BigDecimal originalAmount = BigDecimal.valueOf(100); // set volume here
+        BigDecimal originalAmount = BigDecimal.valueOf(BCH_AMOUNT); // set volume here
         CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
             try {
 //                    Thread.sleep(Duration.ofSeconds(20).toMillis());
@@ -241,6 +238,54 @@ public class AveragePricingStragegy {
             }
         });
 
+    }
+
+    @Scheduled(cron = "*/5 * * * * *")
+    public void ltcExecution() throws ExecutionException, InterruptedException {
+        Instrument instrument = new CurrencyPair("LTC", "USD");//set currency pair here
+        BigDecimal originalAmount = BigDecimal.valueOf(LTC_AMOUNT); // set volume here
+        CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
+            try {
+//                    Thread.sleep(Duration.ofSeconds(20).toMillis());
+                placeOrder(instrument, originalAmount);
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+    }
+
+    @Scheduled(cron = "*/5 * * * * *")
+    public void btcExecution() throws ExecutionException, InterruptedException {
+        Instrument instrument = new CurrencyPair("BTC", "USD");//set currency pair here
+        BigDecimal originalAmount = BigDecimal.valueOf(BTC_AMOUNT); // set volume here
+        CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
+            try {
+//                    Thread.sleep(Duration.ofSeconds(20).toMillis());
+                placeOrder(instrument, originalAmount);
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+    }
+
+
+    @Scheduled(cron = "*/5 * * * * *")
+    public void ethExecution() throws ExecutionException, InterruptedException {
+        Instrument instrument = new CurrencyPair("ETH", "USD");//set currency pair here
+        BigDecimal originalAmount = BigDecimal.valueOf(ETH_AMOUNT); // set volume here
+        CompletableFuture<Void> run = CompletableFuture.runAsync(() -> {
+            try {
+//                    Thread.sleep(Duration.ofSeconds(20).toMillis());
+                placeOrder(instrument, originalAmount);
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
 
     }
 

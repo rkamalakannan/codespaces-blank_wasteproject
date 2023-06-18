@@ -47,17 +47,17 @@ import java.util.concurrent.Executors;
 @Component
 public class AveragePricingStragegy {
 
-    public static final int LTC_AMOUNT = 1;
-    public static final double BTC_AMOUNT = 0.01;
-    public static final int ETH_AMOUNT = 1;
-    public static final int BCH_AMOUNT = 2;
+    public static final double LTC_AMOUNT = 0.5;
+    public static final double BTC_AMOUNT = 0.005;
+    public static final double ETH_AMOUNT = 0.05;
+    public static final double BCH_AMOUNT = 1;
     @Autowired
     KrakenSpotConfiguration krakenSpotConfiguration;
 
     @Autowired
     KrakenFutureConfiguration krakenFutureConfiguration;
 
-    ExecutorService myExecutor = Executors.newFixedThreadPool(BCH_AMOUNT);
+    ExecutorService myExecutor = Executors.newFixedThreadPool(2);
 
 
     public Root getOhlc5m(Instrument instrument) throws IOException {
@@ -79,7 +79,7 @@ public class AveragePricingStragegy {
         instrument = new FuturesContract(instrument.getBase() + "/USD/PERP");
         BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(200).build();
         Instrument finalInstrument = instrument;
-        series.addBar(Duration.ofSeconds(LTC_AMOUNT), ZonedDateTime.now(),
+        series.addBar(Duration.ofSeconds(1), ZonedDateTime.now(),
                 0, 0, 0, 0, 0);
         Disposable subscription1 = exchange.getStreamingMarketDataService()
                 .getTicker(instrument)
@@ -89,7 +89,7 @@ public class AveragePricingStragegy {
                             ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(trade.getTimestamp().toInstant(),
                                     ZoneId.systemDefault());
                             if (zonedDateTime.isAfter(series.getLastBar().getEndTime())) {
-                                series.addBar(Duration.ofSeconds(LTC_AMOUNT), zonedDateTime,
+                                series.addBar(Duration.ofSeconds(1), zonedDateTime,
                                         trade.getLast(), trade.getLast(), trade.getLast(), trade.getLast(), trade.getVolume());
                                 buildStrategy(series, finalInstrument, originalAmount);
                             }
@@ -120,7 +120,7 @@ public class AveragePricingStragegy {
         try {
             Root krakenOHLCs = getOhlc5m(instrument);
             for (Candle krakenOHLC : krakenOHLCs.getCandles()) {
-                BaseBar bar = new BaseBar(Duration.ofMinutes(LTC_AMOUNT), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getMyopen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), String.valueOf(krakenOHLC.getVolume()));
+                BaseBar bar = new BaseBar(Duration.ofMinutes(1), ZonedDateTime.ofInstant(Instant.ofEpochSecond(krakenOHLC.getTime()), ZoneId.systemDefault()), krakenOHLC.getMyopen(), krakenOHLC.getHigh(), krakenOHLC.getLow(), krakenOHLC.getClose(), String.valueOf(krakenOHLC.getVolume()));
                 series.addBar(bar);
 
             }
@@ -186,8 +186,8 @@ public class AveragePricingStragegy {
         Rule macdExitRule = new CrossedDownIndicatorRule(macd, emaMacd);
 
 
-        System.out.println("Entry Rule Satisfied:" + entryRule.isSatisfied(series.getEndIndex()));
-        System.out.println("Exit Rule Satisified:" + exitRule.isSatisfied(series.getEndIndex()));
+//        System.out.println("Entry Rule Satisfied:" + entryRule.isSatisfied(series.getEndIndex()));
+//        System.out.println("Exit Rule Satisified:" + exitRule.isSatisfied(series.getEndIndex()));
         System.setProperty("java.awt.headless", "false");
 
 //        TacChartBuilder.of(barseries, Theme.DARK)//        TacChartBuilder.of(barseries)
@@ -236,7 +236,7 @@ public class AveragePricingStragegy {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        });
+        },myExecutor);
 
     }
 
@@ -252,7 +252,7 @@ public class AveragePricingStragegy {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        });
+        }, myExecutor);
 
     }
 
@@ -268,7 +268,7 @@ public class AveragePricingStragegy {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        });
+        },myExecutor);
 
     }
 
@@ -285,7 +285,7 @@ public class AveragePricingStragegy {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        });
+        },myExecutor);
 
     }
 

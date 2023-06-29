@@ -73,8 +73,6 @@ public class KrakenFutureConfiguration {
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-//        spec.setApiKey("9uJBCOFWib8xnSfGIUnK5WyoHkdvJ/n0soLSgcAKilKNmF289B4A3myC");
-//        spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
         spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
         spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
 //        spec.setHost("https://api.futures.kraken.com/derivatives");

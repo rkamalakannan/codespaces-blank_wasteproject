@@ -9,8 +9,6 @@ import cloudcode.krakenfutures.models.Root;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
-import org.knowm.xchange.currency.CurrencyPair;
-import org.knowm.xchange.derivative.FuturesContract;
 import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.account.AccountInfo;
 import org.knowm.xchange.dto.account.OpenPosition;
@@ -54,8 +52,8 @@ import java.util.stream.Collectors;
 @Component
 public class KrakenFutureConfiguration {
 
-    public static final double SL = 0.1;
-    public static final double PROFIT_PERCENTAGE = 0.1;
+    public static final double SL = 1;
+    public static final double PROFIT_PERCENTAGE = 0.06;
     private static final String MULTI_COLLATERAL_PRODUCTS = "pf_";
     public static final double EXTEND_PRICE = 0.02;
     private final Exchange exchange = createExchange();
@@ -317,8 +315,8 @@ public class KrakenFutureConfiguration {
                                 .build());
 
                 System.out
-                        .println("Placed Limit Order for instrument" + instrument.getBase().getCurrencyCode() + bidType
-                                + "for value"
+                        .println("Placed Limit Order for instrument = " + instrument.getBase().getCurrencyCode() + " " + bidType
+                                + "for value = "
                                 + limitPrice + "with order id :"
                                 + orderId);
             }
@@ -399,8 +397,8 @@ public class KrakenFutureConfiguration {
                             .originalAmount(originalAmount)
                             .build());
 
-            System.out.println("Placed Stop Loss instrument" + instrument.getBase().getCurrencyCode() + bidType
-                    + "for value" + stopPrice
+            System.out.println("Placed Stop Loss instrument = " + instrument.getBase().getCurrencyCode() + " " + bidType
+                    + "for value = " + stopPrice
                     + "with order id :" + orderId);
 
         } catch (Exception e) {
@@ -412,8 +410,6 @@ public class KrakenFutureConfiguration {
 
     public void takeOnePercent(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
                                List<OpenPosition> openPositionsList) {
-
-        System.out.println("Inside Take One Percent and Exit");
 
 
         OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
@@ -458,9 +454,9 @@ public class KrakenFutureConfiguration {
                                 .originalAmount(originalAmount)
                                 .build());
                 System.out.println(
-                        "Placed Take Profit instrument" + instrument.getBase().getCurrencyCode() + bidType + "for value"
+                        "Placed Take Profit instrument = " + instrument.getBase().getCurrencyCode() + "  " + bidType + "for value = "
                                 + price
-                                + "with order id :" + orderId);
+                                + "with order id :  " + orderId);
             }
 
         } catch (Exception e) {
@@ -541,19 +537,22 @@ public class KrakenFutureConfiguration {
     public void cancelInstrumentOrder(Instrument instrument) throws IOException {
 
         OpenOrders hiddenOrders = exchange.getTradeService().getOpenOrders();
+/*
         Instrument modifiedInstrument = new FuturesContract(new CurrencyPair(instrument.getBase(), instrument.getCounter()), "PERP");
+*/
         if (!hiddenOrders.getHiddenOrders().isEmpty()) {
-            hiddenOrders.getHiddenOrders().forEach(order -> {
-                String orderId = order.getId();
-                try {
-                    System.out.println("Inside Cancellation Of Hidden Orders!!");
-                    exchange.getTradeService().cancelOrder(new DefaultCancelOrderParamId(orderId));
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+            hiddenOrders.getHiddenOrders().stream().filter(order -> order.getInstrument().getBase() == instrument.getBase())
+                    .forEach(order -> {
+                        String orderId = order.getId();
+                        try {
+                            exchange.getTradeService().cancelOrder(new DefaultCancelOrderParamId(orderId));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
+
 
     public void checkAccount() throws IOException {
 
@@ -567,9 +566,7 @@ public class KrakenFutureConfiguration {
     @Scheduled(cron = "0 */5 * * * *")
     public void checkOpenOrdersAndCancelFirst() throws IOException {
         OpenOrders openOrders = exchange.getTradeService().getOpenOrders();
-        System.out.println("Inside Cancelling Orders");
         if (!openOrders.getAllOpenOrders().isEmpty()) {
-            System.out.println("Before Cancelling Trigger Order the count was:" + openOrders.getAllOpenOrders().size());
             openOrders.getAllOpenOrders().stream()
                     .map(Order::getInstrument).collect(Collectors.toList()).forEach(instrument -> {
                         try {
@@ -584,11 +581,7 @@ public class KrakenFutureConfiguration {
     }
 
     public List<OpenPosition> getPositions() throws IOException {
-        List<OpenPosition> openPositions = exchange.getTradeService().getOpenPositions().getOpenPositions();
-        for (OpenPosition openPosition : openPositions) {
-            System.out.println(openPosition);
-        }
-        return openPositions;
+        return exchange.getTradeService().getOpenPositions().getOpenPositions();
     }
 
     public List<KrakenFuturesOpenPosition> getPositionsRaw() throws IOException {
@@ -613,7 +606,7 @@ public class KrakenFutureConfiguration {
         long from = time.atZone(zoneId).toEpochSecond();
         long to = ZonedDateTime.now().toEpochSecond();
 
-        String resolution = "1m";
+        String resolution = "5m";
 
 
         return this.client.get()

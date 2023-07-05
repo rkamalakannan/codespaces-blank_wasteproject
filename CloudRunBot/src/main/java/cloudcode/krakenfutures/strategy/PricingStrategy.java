@@ -27,7 +27,9 @@ import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
 import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.*;
+import org.ta4j.core.rules.CrossedDownIndicatorRule;
+import org.ta4j.core.rules.CrossedUpIndicatorRule;
+import org.ta4j.core.rules.TrailingStopLossRule;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -167,10 +169,12 @@ public class PricingStrategy {
 
         StochasticOscillatorKIndicator stochasticOscillK = new StochasticOscillatorKIndicator(series, 14);
 
-        System.out.println("sr.getValue(series.getEndIndex()) = " + stochasticOscillK.getValue(series.getEndIndex()));
 
-        Rule accumulationSrEntryRule = new UnderIndicatorRule(sr, 20);
-        Rule accumulationSrExitRule = new OverIndicatorRule(sr, 80);
+
+        System.out.println("Series Index for instrument : " + instrument.getBase() + " " + stochasticOscillK.getValue(series.getEndIndex()));
+
+        Rule accumulationSrEntryRule = new CrossedUpIndicatorRule(stochasticOscillK, 20);
+        Rule accumulationSrExitRule = new CrossedDownIndicatorRule(stochasticOscillK, 80);
 
         Rule srEntry = new CrossedUpIndicatorRule(k, d);
         Rule srExit = new CrossedDownIndicatorRule(k, d);
@@ -196,8 +200,8 @@ public class PricingStrategy {
         Rule macdExitRule = new CrossedDownIndicatorRule(macd, emaMacd);
 
 
-        System.out.println("Entry Rule Satisfied:" + accumulationSrEntryRule.isSatisfied(series.getEndIndex()));
-        System.out.println("Exit Rule Satisfied:" + accumulationSrExitRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Entry Rule Satisfied:" + " for instrument " + instrument.getBase() + " " + accumulationSrEntryRule.isSatisfied(series.getEndIndex()));
+        System.out.println("Exit Rule Satisfied:" + " for instrument " + instrument.getBase() + " " + accumulationSrExitRule.isSatisfied(series.getEndIndex()));
         System.setProperty("java.awt.headless", "false");
 
 //        TacChartBuilder.of(barseries, Theme.DARK)//        TacChartBuilder.of(barseries)

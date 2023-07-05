@@ -52,10 +52,10 @@ import java.util.stream.Collectors;
 @Component
 public class KrakenFutureConfiguration {
 
-    public static final double SL = 1;
-    public static final double PROFIT_PERCENTAGE = 0.06;
+    public static final double SL = 0.3;
+    public static final double PROFIT_PERCENTAGE = 0.2;
     private static final String MULTI_COLLATERAL_PRODUCTS = "pf_";
-    public static final double EXTEND_PRICE = 0.02;
+    public static final double EXTEND_PRICE = 0.01;
     private final Exchange exchange = createExchange();
 
     private final WebClient client;

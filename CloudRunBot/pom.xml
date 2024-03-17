@@ -17,7 +17,7 @@
     </parent>
 
     <properties>
-        <java.version>20</java.version>
+        <java.version>11</java.version>
         <checkstyle.config.location>./checkstyle.xml</checkstyle.config.location>
     </properties>
 

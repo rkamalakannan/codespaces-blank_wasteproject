@@ -13,4 +13,5 @@ module hello.world {
     requires spring.web;
     requires spring.webflux;
     requires com.fasterxml.jackson.annotation;
+    requires reactor.core;
 }

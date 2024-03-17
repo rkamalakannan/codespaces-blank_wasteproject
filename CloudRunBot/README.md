@@ -1,105 +1,130 @@
-# Kubernetes Hello World with Cloud Code
+# Kraken Trading Bot
 
-"Hello World" is a Kubernetes application that contains a single
-[Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) and a corresponding
-[Service](https://kubernetes.io/docs/concepts/services-networking/service/). The Deployment contains a web server that
-renders a simple webpage.
+Lightweight, zero-framework Java trading bot for Kraken exchange.  
+Supports **Spot** cross-currency arbitrage and **Futures** market data streaming with paper/live trading modes.
 
-For details on how to use this sample as a template in Cloud Code, read the documentation for Cloud Code
-for [VS Code](https://cloud.google.com/code/docs/vscode/quickstart-local-dev?utm_source=ext&utm_medium=partner&utm_campaign=CDR_kri_gcp_cloudcodereadmes_012521&utm_content=-)
-or [IntelliJ](https://cloud.google.com/code/docs/intellij/quickstart-k8s?utm_source=ext&utm_medium=partner&utm_campaign=CDR_kri_gcp_cloudcodereadmes_012521&utm_content=-).
+## Architecture
 
-### Table of Contents
+```
+┌─────────────────────────────────────────────────────────┐
+│                   TradingConfig                         │
+│  (env vars: keys, mode, spot/futures toggles, params)   │
+└──────────┬──────────────────────────┬───────────────────┘
+           │                          │
+    ┌──────▼──────┐           ┌───────▼────────┐
+    │  SPOT Market │           │ FUTURES Market │
+    │              │           │                │
+    │ SpotTicker   │           │ FuturesTicker  │
+    │  WebSocket   │           │  WebSocket     │
+    │ (v2 ticker)  │           │ (v1 ticker)    │
+    │      │       │           │                │
+    │ Arbitrage    │           │ (Strategy      │
+    │ Strategy     │           │  hooks ready)  │
+    │      │       │           │                │
+    │ OrderClient  │           │ Futures REST   │
+    │ (WS orders)  │           │ (REST orders)  │
+    └──────────────┘           └────────────────┘
+```
 
-* [What's in this sample](#whats-in-this-sample)
-* [Getting Started with VS Code](#getting-started-with-vs-code)
-* [Getting Started with IntelliJ](#getting-started-with-intellij)
-* [Sign up for User Research](#sign-up-for-user-research)
+## Quick Start
 
----
+### Prerequisites
+- Java 20 or higher
+- Maven 3.6+
 
-## What's in this sample
+### Build
+```bash
+mvn clean package -q
+```
 
-### Kubernetes architecture
+### Run (Paper Trading — default, safe)
+```bash
+java -jar target/kraken-trading-bot-1.0.0.jar
+```
 
-![Kubernetes Architecture Diagram](./img/diagram.png)
+### Run (Live Trading)
+```bash
+export KRAKEN_API_KEY=your_spot_key
+export KRAKEN_API_SECRET=your_spot_secret
+export TRADING_MODE=live
+java -jar target/kraken-trading-bot-1.0.0.jar
+```
 
-### Directory contents
+### Run with Futures
+```bash
+export ENABLE_FUTURES=true
+export KRAKEN_FUTURES_KEY=your_futures_key
+export KRAKEN_FUTURES_SECRET=your_futures_secret
+java -jar target/kraken-trading-bot-1.0.0.jar
+```
 
-- `skaffold.yaml` - A schema file that defines skaffold
-  configurations ([skaffold.yaml reference](https://skaffold.dev/docs/references/yaml/))
-- `kubernetes-manifests/` - Contains Kubernetes YAML files for the Guestbook services and deployments, including:
+## Configuration (Environment Variables)
 
-    - `hello.deployment.yaml` - deploys a pod with the 'java-hello-world' container image
-    - `hello.service.yaml` - creates a load balancer and exposes the 'java-hello-world' service on an external IP in the
-      cluster
+| Variable | Default | Description |
+|---|---|---|
+| `TRADING_MODE` | `paper` | `paper` = log-only, `live` = real orders |
+| `ENABLE_SPOT` | `true` | Enable spot market arbitrage |
+| `ENABLE_FUTURES` | `false` | Enable futures market data + trading |
+| `KRAKEN_API_KEY` | _(empty)_ | Kraken Spot API key |
+| `KRAKEN_API_SECRET` | _(empty)_ | Kraken Spot API secret |
+| `KRAKEN_FUTURES_KEY` | _(empty)_ | Kraken Derivatives API key |
+| `KRAKEN_FUTURES_SECRET` | _(empty)_ | Kraken Derivatives API secret |
+| `TRADE_SIZE_USD` | `50` | Trade size in USD equivalent |
+| `MIN_PROFIT_PCT` | `0.10` | Minimum net profit % to trigger trade |
+| `MAX_TICKER_AGE_MS` | `3000` | Max ticker staleness (ms) |
+| `TRADE_COOLDOWN_MS` | `30000` | Per-asset cooldown between trades (ms) |
 
----
+## Paper vs Live Trading
 
-## Getting Started with VS Code
+- **Paper mode** (default): All order operations are logged but never sent to Kraken. Ticker data is real. Safe for testing strategies.
+- **Live mode**: Real orders are placed on Kraken. Requires valid API keys with trading permissions.
 
-### Run the app locally with minikube
+The mode is controlled by the `TRADING_MODE` environment variable. The bot defaults to `paper` for safety.
 
-1. To run your application, click on the Cloud Code status bar and select ‘Run on Kubernetes’.  
-   ![image](./img/status-bar.png)
+## Spot Arbitrage Strategy
 
-2. Select ‘Run locally using minikube’ when prompted. Cloud Code runs your app in a
-   local [minikube](https://minikube.sigs.k8s.io/docs/start/) cluster.  
-   ![image](./img/create-k8s-cluster.png)
+Monitors the same crypto asset across different fiat quote currencies (USD, EUR, GBP, CAD, AUD, JPY, CHF):
 
-3. View the build progress in the OUTPUT window. Once the build has finished, click on the URL in the OUTPUT window to
-   view your live application.  
-   ![image](./img/kubernetes-url.png)
+1. Discovers all tradable pairs dynamically from Kraken REST API
+2. Subscribes to real-time ticker via WebSocket v2 (`wss://ws.kraken.com/v2`)
+3. Normalizes prices to USD using FX rates derived from stablecoin pairs
+4. When one currency is cheaper (ask) and another is more expensive (bid) after fees → executes simultaneous BUY + SELL
 
-4. To stop the application, click the stop icon on the Debug Toolbar.
+## Futures Market Support
 
----
+When `ENABLE_FUTURES=true`:
 
-## Getting Started with IntelliJ
+- Fetches all tradable futures instruments from Derivatives REST API
+- Streams real-time futures ticker data via WebSocket (`wss://futures.kraken.com/ws/v1`)
+- Includes funding rates, mark price, index price, open interest
+- Order placement via authenticated Derivatives REST API (HMAC-SHA512 signing)
+- Ready for custom futures strategies (hooks available in `FuturesTickerService`)
 
-### Run the app locally with minikube
+## VPS Deployment
 
-#### Edit run configuration
+```bash
+# Build fat JAR
+mvn clean package -q
 
-1. Click the configuration dropdown in the top taskbar and then click **Edit Configurations**.
-   ![image](./img/edit-configurations.png)
+# Run with low-latency JVM flags
+java -server -XX:+UseZGC -XX:+AlwaysPreTouch \
+     -Xms256m -Xmx512m \
+     -jar target/kraken-trading-bot-1.0.0.jar
+```
 
-   The **Develop on Kubernetes** configuration watches for changes, then uses [skaffold](https://skaffold.dev/docs/) to
-   rebuild and rerun your app. You can customize your deployment by making changes to this run configuration or by
-   creating a new Cloud Code: Kubernetes run configuration.
+## Tech Stack
 
+- **Java 20** — plain Java, no framework
+- **Jackson** — JSON parsing
+- **Java-WebSocket 1.5.7** — WebSocket client
+- **Logback** — async logging
+- **java.net.http.HttpClient** — built-in HTTP client (no external HTTP library)
 
-3. Under **Run > Deployment**, select 'Deploy locally to a minikube cluster'.
-   ![image](./img/run-debug-dialog.png)
+## API Endpoints Used
 
-4. Click **OK** to save your configuration.
-
-#### Run the app on minikube
-
-1. Select **Develop on Kubernetes** from the configuration dropdown and click the run icon. Cloud Code runs your app in
-   a local [minikube](ttps://minikube.sigs.k8s.io/docs/start/) cluster.  
-   ![image](./img/edit-configurations.png)
-
-
-2. View the build process in the output window. When the deployment is successful, you're notified that new service URLs
-   are available. Click the Service URLs tab to view the URL(s), then click the URL link to open your browser with your
-   running application.  
-   ![image](./img/service-urls.png)
-
-3. To stop the application, click the stop icon next to the configuration dropdown.
-
----
-
-## Sign up for User Research
-
-We want to hear your feedback!
-
-The Cloud Code team is inviting our user community to sign-up to participate in Google User Experience Research.
-
-If you’re invited to join a study, you may try out a new product or tell us what you think about the products you use
-every day. At this time, Google is only sending invitations for upcoming remote studies. Once a study is complete,
-you’ll receive a token of thanks for your participation such as a gift card or some Google swag.
-
-[Sign up using this link](https://google.qualtrics.com/jfe/form/SV_4Me7SiMewdvVYhL?reserved=1&utm_source=In-product&Q_Language=en&utm_medium=own_prd&utm_campaign=Q1&productTag=clou&campaignDate=January2021&referral_code=UXbT481079)
-and answer a few questions about yourself, as this will help our research team match you to studies that are a great
-fit.
+| API | Endpoint | Purpose |
+|---|---|---|
+| Spot REST | `api.kraken.com/0/public/AssetPairs` | Discover tradable pairs |
+| Spot WS v2 | `wss://ws.kraken.com/v2` | Real-time ticker + order execution |
+| Futures REST | `futures.kraken.com/derivatives/api/v3` | Instruments, order placement |
+| Futures WS v1 | `wss://futures.kraken.com/ws/v1` | Real-time futures ticker |

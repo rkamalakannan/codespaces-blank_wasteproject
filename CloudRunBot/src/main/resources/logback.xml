@@ -1,0 +1,24 @@
+<configuration>
+    <!-- Async appender for non-blocking log writes (low-latency) -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{30} - %msg%n</pattern>
+        </encoder>
+        <immediateFlush>false</immediateFlush>
+    </appender>
+
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="STDOUT"/>
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <logger name="cloudcode.krakenfutures" level="INFO"/>
+    <logger name="cloudcode.krakenfutures.websocket" level="INFO"/>
+    <logger name="org.java_websocket" level="WARN"/>
+
+    <root level="WARN">
+        <appender-ref ref="ASYNC"/>
+    </root>
+</configuration>

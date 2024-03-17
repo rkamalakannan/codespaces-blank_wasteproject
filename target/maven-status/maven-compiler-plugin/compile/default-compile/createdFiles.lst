@@ -1,0 +1,5 @@
+com\krakenfutures\wastebot\service\ScheduledTradingService.class
+com\krakenfutures\wastebot\config\SchedulerConfig.class
+com\krakenfutures\wastebot\controller\BotController.class
+com\krakenfutures\wastebot\weblayer\KrakenFutureConfiguration.class
+com\krakenfutures\wastebot\service\ScheduledTradingService$AssetConfig.class

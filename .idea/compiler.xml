@@ -10,10 +10,13 @@
         <module name="hello-world" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="wastebot" target="17" />
+    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
-      <module name="hello-world" options="-parameters" />
+      <module name="hello-world" options="" />
     </option>
   </component>
 </project>

@@ -9,6 +9,8 @@ import cloudcode.krakenfutures.models.Root;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
+import org.knowm.xchange.currency.CurrencyPair;
+import org.knowm.xchange.derivative.FuturesContract;
 import org.knowm.xchange.dto.Order;
 import org.knowm.xchange.dto.account.AccountInfo;
 import org.knowm.xchange.dto.account.OpenPosition;
@@ -25,8 +27,6 @@ import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataServiceRaw;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesTradeServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelAllOrdersByInstrument;
-import org.knowm.xchange.service.trade.params.DefaultCancelOrderParamId;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -44,7 +44,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * @author vscode
@@ -52,29 +51,35 @@ import java.util.stream.Collectors;
 @Component
 public class KrakenFutureConfiguration {
 
-    public static final double SL = 0.3;
-    public static final double PROFIT_PERCENTAGE = 0.2;
-    private static final String MULTI_COLLATERAL_PRODUCTS = "pf_";
+    public static final double SL = 0.08;
+    public static final double PROFIT_PERCENTAGE = 0.15;
     public static final double EXTEND_PRICE = 0.01;
+    private static final String MULTI_COLLATERAL_PRODUCTS = "pf_";
     private final Exchange exchange = createExchange();
 
     private final WebClient client;
-    @Autowired
-    KrakenSpotConfiguration krakenSpotConfiguration;
+//    @Autowired
+//    KrakenSpotConfiguration krakenSpotConfiguration;
 
 
     public KrakenFutureConfiguration(WebClient.Builder builder) {
-        this.client = builder.baseUrl("https://demo-futures.kraken.com/api").build();
+//        this.client = builder.baseUrl("https://futures.kraken.com/api").build();
+        this.client = builder.baseUrl("https://futures.kraken.com/api").build();
+
     }
 //    @Autowired
 //    CryptoWatchConfiguration cryptoWatchConfiguration;
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-        spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
-        spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
-//        spec.setHost("https://api.futures.kraken.com/derivatives");
-        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
+        spec.setApiKey("wrKkBrbowxCUVFVHnKOyz4pJwx89P+6wZmrRlI//0jvJt9ZRAZ3FmoBV");
+        spec.setSecretKey("rIPeCceTZBYgpfJYH7c+28DTl52ypGKnsGOC8d9N5NkcAKEfLSI7IF6szEmuLA1xUY/rL0B8zyuO0R3WZ8w28gvk");
+//
+//        spec.setApiKey("Wlwq9kqHpkdIiP4RT/aWnLaqe1UPGopK4lAPJfU/oATwUsbHtNKLS4vA");
+//        spec.setSecretKey("GxhmqO61a3nN6ZLP/p+ZB45MkB4LRI/WDMnUqReawMM3+rb4EaGG9VipeJeC9ctjj1FhFJzYUQ+UitBNXrW/PDs1");
+
+        spec.setHost("https://api.futures.kraken.com/derivatives");
+        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, false);
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 
@@ -139,13 +144,19 @@ public class KrakenFutureConfiguration {
     public void placeOrder(Instrument instrument, BigDecimal originalAmount, Rule buyRule, Rule sellRule,
                            BarSeries series) throws IOException {
         // checkAccount();
+
+        //override sell rule (false)
+
+        var isSellRuleSatisfied = sellRule.isSatisfied(series.getEndIndex());
+        isSellRuleSatisfied = false;
+
         List<OpenPosition> openPositionsList = getPositions();
 
         String triggerOrderType = "";
 
         BigDecimal openPositionAmount = BigDecimal.ZERO;
 
-        if (openPositionsList.size() > 0) {
+        if (!openPositionsList.isEmpty()) {
             OpenPosition openPosition = openPositionsList.stream()
                     .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
                             .contains(instrument.getBase().getCurrencyCode()))
@@ -160,7 +171,7 @@ public class KrakenFutureConfiguration {
                 }
             }
         }
-        cancelInstrumentOrder(instrument);
+//        checkOpenOrdersAndCancelFirst();
         BigDecimal krakenFutureLastValue = getTickers(instrument).getMarkPrice();
 //        BigDecimal krakenSpotLastValue = krakenSpotConfiguration.getKrakenSpotTicker(instrument).getClose().getPrice();
         if (buyRule.isSatisfied(series.getEndIndex())) {
@@ -181,7 +192,7 @@ public class KrakenFutureConfiguration {
             triggerOrders(instrument, originalAmount, openPositionsList, triggerOrderType,
                     krakenFutureLastValue);
 
-        } else if (sellRule.isSatisfied(series.getEndIndex())) {
+        } else if (isSellRuleSatisfied) {
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
 
@@ -207,7 +218,7 @@ public class KrakenFutureConfiguration {
     }
 
     private void triggerOrders(Instrument instrument, BigDecimal originalAmount, List<OpenPosition> openPositionsList,
-                               String triggerOrderType, BigDecimal krakenSpotLastValue) throws IOException {
+                               String triggerOrderType, BigDecimal krakenSpotLastValue) {
         placeStopOrder(instrument, originalAmount, triggerOrderType,
                 krakenSpotLastValue, openPositionsList);
         takeOnePercent(instrument, originalAmount, triggerOrderType, krakenSpotLastValue, openPositionsList);
@@ -220,8 +231,8 @@ public class KrakenFutureConfiguration {
 
     private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount,
                                                List<OpenPosition> openPositionsList,
-                                               String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue) throws IOException {
-        if (openPositionsList.size() > 0) {
+                                               String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue) {
+        if (!openPositionsList.isEmpty()) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                             .getCurrencyCode().contains(instrument.getBase().getCurrencyCode())).findAny()
                     .orElse(null);
@@ -328,7 +339,7 @@ public class KrakenFutureConfiguration {
                                    BigDecimal limitPrice, Instrument instrument) {
         BigDecimal openPositionPrice;
         boolean shouldBePlaced = true;
-        if (openPositionsList.size() > 0) {
+        if (!openPositionsList.isEmpty()) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                             .getCurrencyCode().contains(instrument.getBase().getCurrencyCode())).findAny()
                     .orElse(null);
@@ -364,7 +375,7 @@ public class KrakenFutureConfiguration {
         OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                 .getCurrencyCode().contains(instrument.getBase().getCurrencyCode())).findAny().orElse(null);
         if (bidType.equals("BID")) {
-            if (openPositionsList.size() > 0) {
+            if (!openPositionsList.isEmpty()) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
                     originalAmount = openPosition.getSize();
@@ -372,7 +383,7 @@ public class KrakenFutureConfiguration {
             }
             stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(SL / 100.0)));
         } else {
-            if (openPositionsList.size() > 0) {
+            if (!openPositionsList.isEmpty()) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
                     originalAmount = openPosition.getSize();
@@ -415,7 +426,7 @@ public class KrakenFutureConfiguration {
 
         BigDecimal profitPrice;
         if (bidType.equals("ASK")) {
-            if (openPositionsList.size() > 0) {
+            if (!openPositionsList.isEmpty()) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
                     originalAmount = openPosition.getSize();
@@ -423,7 +434,7 @@ public class KrakenFutureConfiguration {
             }
             profitPrice = price.plus().add(price.multiply(BigDecimal.valueOf(PROFIT_PERCENTAGE / 100.0)));
         } else {
-            if (openPositionsList.size() > 0) {
+            if (!openPositionsList.isEmpty()) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
                     originalAmount = openPosition.getSize();
@@ -470,7 +481,7 @@ public class KrakenFutureConfiguration {
         boolean shouldBePlaced = true;
 
         BigDecimal positionSize;
-        if (openPositionsList.size() > 0) {
+        if (!openPositionsList.isEmpty()) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                     .getCurrencyCode().contains(instrument.getBase().getCurrencyCode())).findAny().orElse(null);
             if (openPosition != null) {
@@ -534,16 +545,13 @@ public class KrakenFutureConfiguration {
 
     public void cancelInstrumentOrder(Instrument instrument) throws IOException {
 
-        OpenOrders hiddenOrders = exchange.getTradeService().getOpenOrders();
-/*
+        var hiddenOrders = exchange.getTradeService().getOpenOrders().getHiddenOrders();
         Instrument modifiedInstrument = new FuturesContract(new CurrencyPair(instrument.getBase(), instrument.getCounter()), "PERP");
-*/
-        if (!hiddenOrders.getHiddenOrders().isEmpty()) {
-            hiddenOrders.getHiddenOrders().stream().filter(order -> order.getInstrument().getBase() == instrument.getBase())
+        if (!hiddenOrders.isEmpty()) {
+            hiddenOrders
                     .forEach(order -> {
-                        String orderId = order.getId();
                         try {
-                            exchange.getTradeService().cancelOrder(new DefaultCancelOrderParamId(orderId));
+                            exchange.getTradeService().cancelAllOrders(new DefaultCancelAllOrdersByInstrument(order.getInstrument()));
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -561,15 +569,32 @@ public class KrakenFutureConfiguration {
                 .getCurrentLeverage().toString());
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 */2 * * * *")
     public void checkOpenOrdersAndCancelFirst() throws IOException {
         OpenOrders openOrders = exchange.getTradeService().getOpenOrders();
-        if (!openOrders.getAllOpenOrders().isEmpty()) {
-            openOrders.getAllOpenOrders().stream()
-                    .map(Order::getInstrument).collect(Collectors.toList()).forEach(instrument -> {
+        if (!openOrders.getOpenOrders().isEmpty()) {
+            openOrders.getOpenOrders().stream()
+                    .map(Order::getId).forEach(s -> {
                         try {
                             exchange.getTradeService()
-                                    .cancelAllOrders(new DefaultCancelAllOrdersByInstrument(instrument));
+                                    .cancelOrder(s);
+                        } catch (IOException e) {
+                            System.out.println("Exception while cancelling = " + e.getMessage());
+                        }
+                    });
+        }
+
+    }
+
+//    @Scheduled(cron = "0 */20 * * * *")
+    public void checkAndCancelHiddenOrders() throws IOException {
+        var hiddenOrders = exchange.getTradeService().getOpenOrders().getHiddenOrders();
+        if (!hiddenOrders.isEmpty()) {
+            hiddenOrders.stream()
+                    .map(Order::getId).forEach(s -> {
+                        try {
+                            exchange.getTradeService()
+                                    .cancelOrder(s);
                         } catch (IOException e) {
                             System.out.println("Exception while cancelling = " + e.getMessage());
                         }

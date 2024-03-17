@@ -3,7 +3,6 @@ package cloudcode.krakenfutures.strategy;
 import cloudcode.krakenfutures.models.Candle;
 import cloudcode.krakenfutures.models.Root;
 import cloudcode.krakenfutures.weblayer.KrakenFutureConfiguration;
-import cloudcode.krakenfutures.weblayer.KrakenSpotConfiguration;
 import info.bitrich.xchangestream.core.StreamingExchange;
 import info.bitrich.xchangestream.core.StreamingExchangeFactory;
 import info.bitrich.xchangestream.krakenfutures.KrakenFuturesStreamingExchange;
@@ -18,6 +17,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.ta4j.core.*;
 import org.ta4j.core.AnalysisCriterion.PositionFilter;
+import org.ta4j.core.backtest.BarSeriesManager;
 import org.ta4j.core.criteria.*;
 import org.ta4j.core.criteria.pnl.ProfitCriterion;
 import org.ta4j.core.criteria.pnl.ProfitLossCriterion;
@@ -27,9 +27,7 @@ import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import org.ta4j.core.indicators.supertrend.SuperTrendIndicator;
 import org.ta4j.core.num.DecimalNum;
 import org.ta4j.core.num.Num;
-import org.ta4j.core.rules.CrossedDownIndicatorRule;
-import org.ta4j.core.rules.CrossedUpIndicatorRule;
-import org.ta4j.core.rules.TrailingStopLossRule;
+import org.ta4j.core.rules.*;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -40,16 +38,17 @@ import java.time.ZonedDateTime;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class PricingStrategy {
 
-    public static final double LTC_AMOUNT = 5;
-    public static final double BTC_AMOUNT = 0.1;
-    public static final double ETH_AMOUNT = 1;
-    public static final double BCH_AMOUNT = 5;
-    @Autowired
-    KrakenSpotConfiguration krakenSpotConfiguration;
+    public static final double LTC_AMOUNT = 1;
+    public static final double BTC_AMOUNT = 0.001;
+    public static final double ETH_AMOUNT = 0.01;
+    public static final double BCH_AMOUNT = 1;
+//    @Autowired
+//    KrakenSpotConfiguration krakenSpotConfiguration;
 
     @Autowired
     KrakenFutureConfiguration krakenFutureConfiguration;
@@ -70,11 +69,11 @@ public class PricingStrategy {
 //        spec.setSecretKey("MOzKv4yBmJIOIyJJBLQFoanaHLYSssMRizOL4M8Kwg7UcPaFH9RCl26a8ViyE+JkR9iZXpf9GQ+mnnTWKZERiXBZ");
         spec.setApiKey("hp/R4xE5vE38ZZZ1vmgpX/ii5QX5VIQTVd97WS4d/zSAE2FizzaUCQMz");
         spec.setSecretKey("UAofzx1foXy+2xqNbt50Q4cPFy4Jllp+gyVlK6rzy6suWNirtPfy3VDVo4fdt5omRaPTn8J6V76uYoVy1sWbtC+u");
-        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
+        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, false);
         StreamingExchange exchange = StreamingExchangeFactory.INSTANCE.createExchange(spec);
         exchange.connect().blockingAwait();
         instrument = new FuturesContract(instrument.getBase() + "/USD/PERP");
-        BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(200).build();
+        BarSeries series = new BaseBarSeriesBuilder().withMaxBarCount(Integer.MAX_VALUE).build();
         Instrument finalInstrument = instrument;
         series.addBar(Duration.ofSeconds(1), ZonedDateTime.now(),
                 0, 0, 0, 0, 0);
@@ -170,7 +169,6 @@ public class PricingStrategy {
         StochasticOscillatorKIndicator stochasticOscillK = new StochasticOscillatorKIndicator(series, 14);
 
 
-
         System.out.println("Series Index for instrument : " + instrument.getBase() + " " + stochasticOscillK.getValue(series.getEndIndex()));
 
         Rule accumulationSrEntryRule = new CrossedUpIndicatorRule(stochasticOscillK, 20);
@@ -198,12 +196,49 @@ public class PricingStrategy {
 
         Rule macdEntryRule = new CrossedUpIndicatorRule(macd, emaMacd);
         Rule macdExitRule = new CrossedDownIndicatorRule(macd, emaMacd);
+//
+//        Rule buyRule = ((new CrossedUpIndicatorRule(rsiIndicator, 30).or(
+//                (new CrossedUpIndicatorRule(superTrendIndicator, closePrice).or(
+//                        ((new CrossedUpIndicatorRule(macd, emaMacd))
+//                                .and(new UnderIndicatorRule(macd, 0))))))));
+
+        Rule buyRule =
+                ((new CrossedUpIndicatorRule(rsiIndicator, 30)
+                        .and(
+                                ((new CrossedUpIndicatorRule(macd, emaMacd))
+                                        .and(new UnderIndicatorRule(macd, 0)))))).or((new CrossedUpIndicatorRule(superTrendIndicator, closePrice)));
+
+        Rule sellRule = ((new CrossedDownIndicatorRule(rsiIndicator, 60)).or(
+                (new CrossedDownIndicatorRule(superTrendIndicator, closePrice).or(
+                        ((new CrossedDownIndicatorRule(macd, emaMacd)))))));
 
 
-        System.out.println("Entry Rule Satisfied:" + " for instrument " + instrument.getBase() + " " + accumulationSrEntryRule.isSatisfied(series.getEndIndex()));
-        System.out.println("Exit Rule Satisfied:" + " for instrument " + instrument.getBase() + " " + accumulationSrExitRule.isSatisfied(series.getEndIndex()));
+        var fast = macd.getValue(series.getEndIndex());
+        var signal = emaMacd.getValue(series.getEndIndex());
+
+//            MAPeriod1 = 20;
+//            MAPeriod2 = 200;
+//            ClosePercentageLimit = 2; // percentage limit for closeness
+//            MAPercentDiff = abs((MA(C, MAPeriod1) / MA(C, MAPeriod2) - 1) * 100);  // absolute percentage difference between MAs
+//            MAsClose = MAPercentDiff < ClosePercentageLimit;
+        Num differencePercentage = signal.numOf(0);
+        if (fast.isLessThan(signal) && fast.isNegative() && signal.isNegative()) {
+            differencePercentage = (fast.dividedBy(signal)).multipliedBy(signal.numOf(100));
+        }
+        AtomicBoolean isNear = new AtomicBoolean(false);
+        if (differencePercentage.isLessThanOrEqual(fast.numOf(80)) && differencePercentage.isGreaterThan(fast.zero())) {
+            isNear.getAndSet(true);
+        }
+
+
+        Rule nearCrossBuyRule = (new BooleanRule(
+                isNear.get()));
+
+        Rule nearExitRule = new BooleanRule(isNear.get());
+
+        System.out.println("Entry Rule Satisfied:" + " for instrument " + instrument.getBase() + " " + nearCrossBuyRule.isSatisfied(series.getEndIndex()));
+//        System.out.println("Exit Rule Satisfied:" + " for instrument " + instrument.getBase() + " " + sellRule.isSatisfied(series.getEndIndex()));
         System.setProperty("java.awt.headless", "false");
-
 //        TacChartBuilder.of(barseries, Theme.DARK)//        TacChartBuilder.of(barseries)
 //                .withIndicator(
 //                        IndicatorConfiguration.Builder.of(rocIndicator)
@@ -218,7 +253,7 @@ public class PricingStrategy {
 //                        .color(Color.RED))
 //                .buildAndShow();
 
-        krakenFutureConfiguration.placeOrder(instrument, originalAmount, accumulationSrEntryRule, accumulationSrExitRule, series);
+        krakenFutureConfiguration.placeOrder(instrument, originalAmount, nearCrossBuyRule, sellRule, series);
 
         // Exit rule
         // The long-term trend is down when a security is below its 200-period SMA.

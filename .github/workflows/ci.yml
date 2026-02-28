@@ -36,14 +36,6 @@ jobs:
 
   # ─── Job 2: Deploy to Railway ───────────────────────────────────────────────
   # Runs only on direct pushes to kite_v1 (not on pull requests).
-  #
-  # Prerequisites — add these secrets in GitHub repo settings
-  # (Settings → Secrets and variables → Actions → New repository secret):
-  #
-  #   RAILWAY_TOKEN   — your Railway API token
-  #                     (Railway dashboard → Account Settings → Tokens → New Token)
-  #   RAILWAY_SERVICE — the Railway service ID or name to deploy
-  #                     (optional; omit if the project has only one service)
   deploy:
     name: Deploy to Railway
     runs-on: ubuntu-latest
@@ -54,6 +46,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build jar
+        working-directory: xchangepractice
+        run: ./mvnw package -DskipTests -q
+
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
@@ -62,4 +64,4 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
-          railway up --detach
+          railway up --detach --service crypto-sipper

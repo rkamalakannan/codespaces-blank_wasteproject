@@ -1,0 +1,18 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Railway deployment configuration
+# https://docs.railway.app/reference/config-as-code
+# ─────────────────────────────────────────────────────────────────────────────
+
+[build]
+# Tell Railway to use the Dockerfile in this directory
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Health-check endpoint — Railway polls this after each deploy
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60          # seconds to wait for a healthy response
+
+# Restart policy: restart up to 3 times on crash
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

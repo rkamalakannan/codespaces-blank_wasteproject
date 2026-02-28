@@ -1,69 +1,98 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.0.2</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-	<groupId>com.hope</groupId>
-	<artifactId>xchangepractice</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>xchangepractice</name>
-	<description>Demo project for Spring Boot</description>
-	<properties>
-		<java.version>17</java.version>
-	</properties>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-rest</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-devtools</artifactId>
-			<scope>runtime</scope>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-	</dependencies>
+    <modelVersion>4.0.0</modelVersion>
 
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.3</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.hope</groupId>
+    <artifactId>crypto-sipper</artifactId>
+    <version>1.0.0</version>
+    <name>Crypto Sipper</name>
+    <description>Crypto Currency Market Trend Analyzer — live data, Ta4j technical analysis, buy/sell signals</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <ta4j.version>0.16</ta4j.version>
+        <xchange.version>5.2.0</xchange.version>
+    </properties>
+
+    <dependencies>
+
+        <!-- ─── Spring Boot ─────────────────────────────────────────── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- ─── Ta4j — Technical Analysis for Java ──────────────────── -->
+        <!--
+            Ta4j provides:
+              • BarSeries  – time-series of OHLCV bars
+              • Indicators – RSI, MACD, EMA, SMA, Bollinger Bands, etc.
+              • Strategy   – entry/exit rule engine
+              • BacktestExecutor – back-test a strategy on historical data
+        -->
+        <dependency>
+            <groupId>org.ta4j</groupId>
+            <artifactId>ta4j-core</artifactId>
+            <version>${ta4j.version}</version>
+        </dependency>
+
+        <!-- ─── XChange — Unified Crypto Exchange API ───────────────── -->
+        <!--
+            XChange provides a single interface to 60+ exchanges.
+            We use the Binance adapter for live OHLCV (kline) data.
+        -->
+        <dependency>
+            <groupId>org.knowm.xchange</groupId>
+            <artifactId>xchange-core</artifactId>
+            <version>${xchange.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.knowm.xchange</groupId>
+            <artifactId>xchange-binance</artifactId>
+            <version>${xchange.version}</version>
+        </dependency>
+
+        <!-- ─── Utilities ───────────────────────────────────────────── -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ─── Test ────────────────────────────────────────────────── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

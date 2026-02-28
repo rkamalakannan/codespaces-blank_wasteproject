@@ -5,8 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.binance.BinanceExchange;
-import org.knowm.xchange.binance.BinanceAdapters;
-import org.knowm.xchange.binance.dto.marketdata.KlineInterval;
 import org.knowm.xchange.binance.service.BinanceMarketDataServiceRaw;
 import org.knowm.xchange.currency.CurrencyPair;
 import org.springframework.stereotype.Service;
@@ -74,7 +72,7 @@ public class MarketDataService {
         CurrencyPair pair = new CurrencyPair(symbol);
 
         // Fetch klines: h1 interval, last BAR_LIMIT candles, no time filter
-        var klines = rawService.getBinanceKlines(pair, KlineInterval.h1, BAR_LIMIT, null, null);
+        var klines = rawService.getKlines(pair, "1h", BAR_LIMIT);
 
         return klines.stream()
                 .map(k -> CryptoBar.builder()

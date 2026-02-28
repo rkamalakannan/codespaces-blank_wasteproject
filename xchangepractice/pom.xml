@@ -76,6 +76,12 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- ─── Actuator — for service management (stop/start) ─────────── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

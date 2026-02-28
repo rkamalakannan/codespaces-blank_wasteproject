@@ -11,6 +11,11 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
 
+import org.knowm.xchange.cryptowatch.CryptowatchExchange;
+import org.knowm.xchange.cryptowatch.dto.marketdata.CryptowatchSummary;
+import org.knowm.xchange.cryptowatch.service.CryptowatchMarketDataServiceRaw;
+import org.knowm.xchange.currency.CurrencyPair;
+
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
@@ -42,15 +47,27 @@ import org.springframework.stereotype.Component;
 public class KrakenFutureConfiguration {
 
     @Autowired
-    CryptoWatchConfiguration cryptoWatchConfiguration;
-
-    @Autowired
     KrakenSpotConfiguration krakenSpotConfiguration;
 
     @Autowired
     BinanceFutureConfiguration binanceFutureConfiguration;
 
     private Exchange exchange = createExchange();
+    private Exchange cryptoExchange = getCryptoWatchExchangeConfiguration();
+
+    public Exchange getCryptoWatchExchangeConfiguration() {
+        return ExchangeFactory.INSTANCE.createExchange(CryptowatchExchange.class);
+    }
+
+    public CryptowatchSummary getFuturesPriceChange(Instrument instrument) throws IOException {
+        CryptowatchMarketDataServiceRaw marketDataService = (CryptowatchMarketDataServiceRaw) cryptoExchange.getMarketDataService();
+        return marketDataService.getCryptowatchSummary(new CurrencyPair("", instrument.getBase().getCurrencyCode()+"usd-perpetual-future-multi"), "kraken-futures");
+    }
+
+    public CryptowatchSummary getSpotPriceChange(Instrument instrument) throws IOException {
+        CryptowatchMarketDataServiceRaw marketDataService = (CryptowatchMarketDataServiceRaw) cryptoExchange.getMarketDataService();
+        return marketDataService.getCryptowatchSummary(new CurrencyPair(instrument.getBase(), instrument.getCounter()), "kraken");
+    }
 
     public Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
@@ -94,13 +111,13 @@ public class KrakenFutureConfiguration {
 
         BigDecimal predictedPrice;
 
-        BigDecimal futureBigDecimalPercentage = cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+        BigDecimal futureBigDecimalPercentage = getFuturesPriceChange(instrument).getPrice()
                 .getChange().getPercentage();
-        BigDecimal spotBigDecimalPercentage = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice()
+        BigDecimal spotBigDecimalPercentage = getSpotPriceChange(instrument).getPrice()
                 .getChange().getPercentage();
         BigDecimal priceDifference;
-        priceDifference = cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
-                .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
+        priceDifference = getSpotPriceChange(instrument).getPrice().getChange()
+                .getAbsolute().subtract(getFuturesPriceChange(instrument).getPrice()
                         .getChange().getAbsolute());
 
         System.out
@@ -113,7 +130,7 @@ public class KrakenFutureConfiguration {
         System.out.println(
                 "future price last" + krakenFutureLastValue);
         System.out.println(
-                "spot price last " + cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
+                "spot price last " + getSpotPriceChange(instrument).getPrice().getLast());
 
         if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
             if (priceDifference.compareTo(BigDecimal.ZERO) > 0)

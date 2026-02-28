@@ -16,6 +16,7 @@
 	<description>Demo project for Spring Boot</description>
 	<properties>
 		<java.version>17</java.version>
+		<xchange.version>5.2.2</xchange.version>
 	</properties>
 	<repositories>
 		<repository>
@@ -49,7 +50,7 @@
 		<dependency>
 			<groupId>org.knowm.xchange</groupId>
 			<artifactId>xchange-krakenfutures</artifactId>
-			<version>5.1.0</version>
+			<version>${xchange.version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>javax.ws.rs</groupId>
@@ -62,7 +63,7 @@
 		<dependency>
 			<groupId>org.knowm.xchange</groupId>
 			<artifactId>xchange-kraken</artifactId>
-			<version>5.1.0</version>
+			<version>${xchange.version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>javax.ws.rs</groupId>
@@ -73,7 +74,7 @@
 		<dependency>
 			<groupId>org.knowm.xchange</groupId>
 			<artifactId>xchange-binance</artifactId>
-			<version>5.1.0</version>
+			<version>${xchange.version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>javax.ws.rs</groupId>

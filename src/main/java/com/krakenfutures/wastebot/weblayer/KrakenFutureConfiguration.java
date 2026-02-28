@@ -111,12 +111,12 @@ public class KrakenFutureConfiguration {
 
         // Calculate percentage change from ticker data
         BigDecimal futuresLast = futuresTicker.getMarkPrice();
-        BigDecimal futuresOpen = futuresTicker.getOpenPrice();
+        BigDecimal futuresOpen = futuresTicker.getOpen24H();
         BigDecimal futureBigDecimalPercentage = futuresOpen.compareTo(BigDecimal.ZERO) > 0
             ? futuresLast.subtract(futuresOpen).divide(futuresOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
             : BigDecimal.ZERO;
 
-        BigDecimal spotLast = spotTicker.getLast().getPrice();
+        BigDecimal spotLast = spotTicker.getClose().getPrice();
         BigDecimal spotOpen = spotTicker.getOpen();
         BigDecimal spotBigDecimalPercentage = spotOpen.compareTo(BigDecimal.ZERO) > 0
             ? spotLast.subtract(spotOpen).divide(spotOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))

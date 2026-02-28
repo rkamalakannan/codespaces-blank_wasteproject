@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Sipper - Service Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status-container {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .status-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .status-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .status-value.stopped {
+            color: #f44336;
+        }
+        
+        .status-value.loading {
+            color: #ff9800;
+        }
+        
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 15px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-start {
+            background: #4CAF50;
+            color: white;
+            grid-column: 1 / -1;
+        }
+        
+        .btn-start:hover:not(:disabled) {
+            background: #45a049;
+        }
+        
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-stop:hover:not(:disabled) {
+            background: #da190b;
+        }
+        
+        .btn-restart {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .btn-restart:hover:not(:disabled) {
+            background: #f57c00;
+        }
+        
+        .btn-status {
+            background: #2196F3;
+            color: white;
+            grid-column: 1 / -1;
+        }
+        
+        .btn-status:hover:not(:disabled) {
+            background: #1976D2;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .log-entry.success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+        
+        .log-entry.error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+        
+        .log-entry.info {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+        }
+        
+        .base-url {
+            margin-bottom: 20px;
+        }
+        
+        .base-url input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .base-url input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🪙 Crypto Sipper</h1>
+        <p class="subtitle">Service Management UI</p>
+        
+        <div class="base-url">
+            <input type="text" id="baseUrl" placeholder="Enter Railway URL (e.g., https://your-app.up.railway.app)" value="">
+        </div>
+        
+        <div class="status-container">
+            <div class="status-label">Service Status</div>
+            <div class="status-value" id="status">CHECKING...</div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn-status" onclick="checkStatus()" id="btnStatus">🔄 Check Status</button>
+            <button class="btn-start" onclick="startService()" id="btnStart">▶️ Start Service</button>
+            <button class="btn-stop" onclick="stopService()" id="btnStop">⏹️ Stop</button>
+            <button class="btn-restart" onclick="restartService()" id="btnRestart">🔄 Restart</button>
+        </div>
+        
+        <div class="log-container" id="log"></div>
+    </div>
+
+    <script>
+        const API_BASE = document.getElementById('baseUrl').value || '';
+        
+        function getBaseUrl() {
+            const input = document.getElementById('baseUrl').value.trim();
+            if (!input) {
+                alert('Please enter your Railway URL first!');
+                return null;
+            }
+            return input.replace(/\/$/, '');
+        }
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function setStatus(status, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = status;
+            statusDiv.className = 'status-value' + (isError ? ' stopped' : '');
+        }
+        
+        function setButtonsEnabled(enabled) {
+            document.getElementById('btnStatus').disabled = !enabled;
+            document.getElementById('btnStart').disabled = !enabled;
+            document.getElementById('btnStop').disabled = !enabled;
+            document.getElementById('btnRestart').disabled = !enabled;
+        }
+        
+        async function checkStatus() {
+            const baseUrl = getBaseUrl();
+            if (!baseUrl) return;
+            
+            setButtonsEnabled(false);
+            setStatus('CHECKING...');
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/manage/status`);
+                const data = await response.json();
+                
+                setStatus(data.status || 'RUNNING');
+                log(`Status check: ${data.status || 'RUNNING'}`, 'success');
+            } catch (error) {
+                setStatus('OFFLINE', true);
+                log(`Status check failed: ${error.message}`, 'error');
+            } finally {
+                setButtonsEnabled(true);
+            }
+        }
+        
+        async function stopService() {
+            const baseUrl = getBaseUrl();
+            if (!baseUrl) return;
+            
+            if (!confirm('Are you sure you want to STOP the service?')) return;
+            
+            setButtonsEnabled(false);
+            setStatus('STOPPING...', true);
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/manage/stop`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                setStatus('STOPPED', true);
+                log(`Service stopped: ${data.message}`, 'success');
+            } catch (error) {
+                setStatus('ERROR', true);
+                log(`Stop failed: ${error.message}`, 'error');
+                setButtonsEnabled(true);
+            }
+        }
+        
+        async function restartService() {
+            const baseUrl = getBaseUrl();
+            if (!baseUrl) return;
+            
+            if (!confirm('Are you sure you want to RESTART the service?')) return;
+            
+            setButtonsEnabled(false);
+            setStatus('RESTARTING...');
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/manage/restart`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                setStatus('RESTARTING...');
+                log(`Service restart initiated: ${data.message}`, 'info');
+                
+                // Wait a bit and check status
+                setTimeout(async () => {
+                    await checkStatus();
+                }, 5000);
+            } catch (error) {
+                setStatus('ERROR', true);
+                log(`Restart failed: ${error.message}`, 'error');
+                setButtonsEnabled(true);
+            }
+        }
+        
+        async function startService() {
+            const baseUrl = getBaseUrl();
+            if (!baseUrl) return;
+            
+            setButtonsEnabled(false);
+            setStatus('STARTING...');
+            
+            try {
+                // For Railway, we typically don't have a "start" endpoint since 
+                // the container handles this. But we can check status.
+                await checkStatus();
+                log('Service start requested - checking status...', 'info');
+            } catch (error) {
+                setStatus('ERROR', true);
+                log(`Start failed: ${error.message}`, 'error');
+                setButtonsEnabled(true);
+            }
+        }
+        
+        // Auto-check status on load
+        window.addEventListener('load', () => {
+            const savedUrl = localStorage.getItem('railwayBaseUrl');
+            if (savedUrl) {
+                document.getElementById('baseUrl').value = savedUrl;
+                checkStatus();
+            }
+        });
+        
+        // Save URL to localStorage
+        document.getElementById('baseUrl').addEventListener('change', (e) => {
+            localStorage.setItem('railwayBaseUrl', e.target.value);
+        });
+    </script>
+</body>
+</html>

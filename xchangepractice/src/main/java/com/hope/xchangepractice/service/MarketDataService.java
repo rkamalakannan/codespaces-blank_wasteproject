@@ -115,8 +115,11 @@ public class MarketDataService {
             return response.body();
         } catch (java.net.URISyntaxException e) {
             throw new IOException("Invalid URL: " + url, e);
-        } catch (java.net.http.HttpRequestTimeoutException e) {
+        } catch (java.net.http.HttpTimeoutException e) {
             throw new IOException("Request timeout", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Request interrupted", e);
         }
     }
 }

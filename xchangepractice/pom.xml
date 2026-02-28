@@ -21,7 +21,6 @@
     <properties>
         <java.version>17</java.version>
         <ta4j.version>0.16</ta4j.version>
-        <xchange.version>5.2.0</xchange.version>
     </properties>
 
     <dependencies>
@@ -30,6 +29,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Jackson for JSON parsing -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <!-- ─── Ta4j — Technical Analysis for Java ──────────────────── -->
@@ -44,22 +49,6 @@
             <groupId>org.ta4j</groupId>
             <artifactId>ta4j-core</artifactId>
             <version>${ta4j.version}</version>
-        </dependency>
-
-        <!-- ─── XChange — Unified Crypto Exchange API ───────────────── -->
-        <!--
-            XChange provides a single interface to 60+ exchanges.
-            We use the Binance adapter for live OHLCV (kline) data.
-        -->
-        <dependency>
-            <groupId>org.knowm.xchange</groupId>
-            <artifactId>xchange-core</artifactId>
-            <version>${xchange.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.knowm.xchange</groupId>
-            <artifactId>xchange-binance</artifactId>
-            <version>${xchange.version}</version>
         </dependency>
 
         <!-- ─── Utilities ───────────────────────────────────────────── -->

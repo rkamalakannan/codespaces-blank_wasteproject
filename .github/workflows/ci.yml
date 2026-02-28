@@ -1,12 +1,13 @@
-name: CI — Build & Test
+name: CI — Build, Test & Deploy
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ kite_v1 ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ kite_v1 ]
 
 jobs:
+  # ─── Job 1: Build & Test ────────────────────────────────────────────────────
   build:
     name: Build with Java 17 + Maven
     runs-on: ubuntu-latest
@@ -32,3 +33,33 @@ jobs:
           name: crypto-sipper-jar
           path: xchangepractice/target/*.jar
           retention-days: 7
+
+  # ─── Job 2: Deploy to Railway ───────────────────────────────────────────────
+  # Runs only on direct pushes to kite_v1 (not on pull requests).
+  #
+  # Prerequisites — add these secrets in GitHub repo settings
+  # (Settings → Secrets and variables → Actions → New repository secret):
+  #
+  #   RAILWAY_TOKEN   — your Railway API token
+  #                     (Railway dashboard → Account Settings → Tokens → New Token)
+  #   RAILWAY_SERVICE — the Railway service ID or name to deploy
+  #                     (optional; omit if the project has only one service)
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    needs: build                  # only deploy after a successful build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/kite_v1'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        working-directory: xchangepractice
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --detach

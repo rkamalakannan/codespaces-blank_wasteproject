@@ -1,0 +1,45 @@
+[build]
+builder = "maven"
+
+[deploy]
+healthcheckPath = "/api-docs/swagger-config"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# ==================== Server Configuration ====================
+[env]
+PORT = "8090"
+
+# ==================== Trading Scheduler (Production - Disabled by default) ====================
+# Enable scheduled trading in production (set to true to enable auto-trading)
+# WARNING: Only enable after thorough testing in sandbox
+trading.scheduler.enabled = "false"
+
+# Polling interval in milliseconds
+# Recommended: 30000 (30 seconds) for production
+trading.scheduler.interval-ms = "30000"
+
+# Default trade amount
+trading.default-amount = "0.01"
+
+# Maximum concurrent positions
+trading.max-positions = "3"
+
+# Active assets to trade (BTC,ETH,SOL by default)
+trading.active-assets = "BTC,ETH,SOL"
+
+# ==================== Kraken API - PRODUCTION KEYS ====================
+# IMPORTANT: Replace with actual production keys before enabling trading
+# Sandbox mode - set to "false" for live trading
+kraken.sandbox.enabled = "true"
+
+# API Key (set in Railway variables - do not hardcode)
+# KRAKEN_API_KEY = "your-production-api-key"
+
+# Secret Key (set in Railway variables - do not hardcode)  
+# KRAKEN_SECRET_KEY = "your-production-secret-key"
+
+# ==================== Spring Boot Actuator for Health Checks ====================
+management.endpoints.web.exposure.include = "health,info"
+management.endpoint.health.show-details = "always"

@@ -66,9 +66,27 @@ public class KrakenFutureConfiguration {
 
     private Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-        spec.setApiKey("8TfYWFiQi7rfNeWcGw43VBMn+6vUEX5aXJFpC+9d2t9HhPfi+wvWtm+n");
-        spec.setSecretKey("485DCqYfbb2hK4gsbB7NwPHz4esjfT1K9vvFdrP0Wwaq4+Qk8wirhxJHvVYKGTlenSrNawhleF+u2MLm57/k4ghO");
-        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, true);
+        
+        // Use environment variables for API credentials (production-ready)
+        String apiKey = System.getenv("KRAKEN_API_KEY");
+        String secretKey = System.getenv("KRAKEN_SECRET_KEY");
+        String sandboxEnabled = System.getenv("KRAKEN_SANDBOX_ENABLED");
+        
+        // Fallback to default sandbox keys if environment variables not set
+        if (apiKey == null || apiKey.isEmpty()) {
+            apiKey = "xcqetVdEl0DHHZuTXRWOY8xZudErAZgUUHE41PuLYStO3ggiiv+EIrGI";
+        }
+        if (secretKey == null || secretKey.isEmpty()) {
+            secretKey = "bvqN0c8JSNS+cg/P6leDIb4uMVQVBts5mG2ZwhKXxB9N0n/17VdB0i5HqPO3gL91wbWcy2fGP83wMnl6Sxg/oP5K";
+        }
+        
+        spec.setApiKey(apiKey);
+        spec.setSecretKey(secretKey);
+        
+        // Use sandbox by default unless explicitly disabled
+        boolean useSandbox = (sandboxEnabled == null) || "true".equalsIgnoreCase(sandboxEnabled);
+        spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, useSandbox);
+        
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 

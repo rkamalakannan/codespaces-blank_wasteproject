@@ -1,38 +1,198 @@
-/*
- * Click nbfs://nbhost/SystemFileS/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nSystemFileSystem/Templates/Classes/Class.java to edit this template
- */
-
 package com.krakenfutures.wastebot.controller;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.knowm.xchange.currency.CurrencyPair;
+import org.knowm.xchange.dto.account.OpenPosition;
 import org.knowm.xchange.instrument.Instrument;
+import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
+import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.krakenfutures.wastebot.service.ScheduledTradingService;
 import com.krakenfutures.wastebot.weblayer.KrakenFutureConfiguration;
 
-/**
- *
- * @author vscode
- */
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.PostConstruct;
+
 @RestController
+@RequestMapping("/api/v1")
+@Tag(name = "Trading Bot", description = "API for executing trades and managing positions")
 public class BotController {
 
     @Autowired
     KrakenFutureConfiguration krakenConfiguration;
 
-    @GetMapping("/v1/execute/{asset}/{originalAmount}")
-    public void executeInstrument(@PathVariable String asset, @PathVariable BigDecimal originalAmount)
-            throws IOException {
-        Instrument instrument = new CurrencyPair(asset, "USD");
-        krakenConfiguration.placeOrder(instrument, originalAmount);
+    @Autowired(required = false)
+    ScheduledTradingService scheduledTradingService;
 
+    // Default amount for manual trades
+    @Value("${trading.default-amount:0.01}")
+    private BigDecimal defaultAmount;
+
+    // Track if scheduler is available
+    private boolean schedulerAvailable = false;
+
+    @PostConstruct
+    public void init() {
+        schedulerAvailable = (scheduledTradingService != null);
     }
 
+    // ==================== Manual Trading Endpoints ====================
+
+    @PostMapping("/execute/{asset}/{amount}")
+    @Operation(summary = "Execute trade", description = "Execute a trade for the specified asset with the given amount")
+    public String executeTrade(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC") 
+            @PathVariable String asset,
+            @Parameter(description = "Original amount to trade", example = "0.5") 
+            @PathVariable BigDecimal amount) throws IOException {
+        Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
+        
+        // Adjust amount precision based on asset
+        ScheduledTradingService.AssetConfig config = 
+            ScheduledTradingService.SUPPORTED_ASSETS.get(asset.toUpperCase());
+        if (config != null) {
+            amount = amount.setScale(config.getAmountPrecision(), BigDecimal.ROUND_DOWN);
+        }
+        
+        krakenConfiguration.placeOrder(instrument, amount);
+        return "Trade executed for " + asset + " with amount " + amount;
+    }
+
+    @GetMapping("/positions")
+    @Operation(summary = "Get open positions", description = "Retrieve all open positions")
+    public List<OpenPosition> getOpenPositions() throws IOException {
+        return krakenConfiguration.getPositions();
+    }
+
+    @GetMapping("/futures-price/{asset}")
+    @Operation(summary = "Get futures price", description = "Get the current futures price for the specified asset")
+    public KrakenFuturesTicker getFuturesPrice(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC") 
+            @PathVariable String asset) throws IOException {
+        Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
+        return krakenConfiguration.getFuturesPriceChange(instrument);
+    }
+
+    @GetMapping("/spot-price/{asset}")
+    @Operation(summary = "Get spot price", description = "Get the current spot price for the specified asset")
+    public KrakenTicker getSpotPrice(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC") 
+            @PathVariable String asset) throws IOException {
+        Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
+        return krakenConfiguration.getSpotPriceChange(instrument);
+    }
+
+    @GetMapping("/profit-limit/{asset}")
+    @Operation(summary = "Get profit limit price", description = "Calculate the predicted profit limit price for the asset")
+    public BigDecimal getProfitLimitPrice(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC") 
+            @PathVariable String asset) throws IOException {
+        Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
+        return krakenConfiguration.getProfitLimitPrice(instrument);
+    }
+
+    @PostMapping("/cancel-orders/{asset}")
+    @Operation(summary = "Cancel orders", description = "Cancel the first open order for the specified asset")
+    public String cancelOrders(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC") 
+            @PathVariable String asset) throws IOException {
+        Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
+        krakenConfiguration.cancelTopFirstOrder(instrument);
+        return "Orders cancelled for " + asset;
+    }
+
+    // ==================== Scheduler Control Endpoints ====================
+
+    @GetMapping("/scheduler/status")
+    @Operation(summary = "Get scheduler status", description = "Get current status of the scheduled trading service")
+    public Map<String, Object> getSchedulerStatus() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("available", schedulerAvailable);
+        
+        if (schedulerAvailable) {
+            status.put("running", !scheduledTradingService.isSchedulerPaused());
+            status.put("paused", scheduledTradingService.isSchedulerPaused());
+            status.put("pollingIntervalMs", scheduledTradingService.getPollingIntervalMs());
+            status.put("lastTradeResults", scheduledTradingService.getLastTradeResults());
+            status.put("supportedAssets", ScheduledTradingService.SUPPORTED_ASSETS.keySet());
+        }
+        
+        return status;
+    }
+
+    @PostMapping("/scheduler/start")
+    @Operation(summary = "Start scheduler", description = "Start the scheduled trading service")
+    public String startScheduler() {
+        if (!schedulerAvailable) {
+            return "Scheduler not available - check configuration";
+        }
+        scheduledTradingService.resumeScheduler();
+        return "Scheduler started";
+    }
+
+    @PostMapping("/scheduler/stop")
+    @Operation(summary = "Stop scheduler", description = "Pause the scheduled trading service")
+    public String stopScheduler() {
+        if (!schedulerAvailable) {
+            return "Scheduler not available - check configuration";
+        }
+        scheduledTradingService.pauseScheduler();
+        return "Scheduler paused";
+    }
+
+    @PostMapping("/scheduler/interval")
+    @Operation(summary = "Update polling interval", description = "Update the polling interval in milliseconds")
+    public String updateInterval(
+            @Parameter(description = "Polling interval in milliseconds", example = "30000") 
+            @RequestParam long intervalMs) {
+        if (!schedulerAvailable) {
+            return "Scheduler not available - check configuration";
+        }
+        
+        // Validate interval (minimum 5 seconds, maximum 5 minutes)
+        if (intervalMs < 5000) {
+            return "Interval too short (minimum 5000ms)";
+        }
+        if (intervalMs > 300000) {
+            return "Interval too long (maximum 300000ms)";
+        }
+        
+        scheduledTradingService.setPollingIntervalMs(intervalMs);
+        return "Polling interval updated to " + intervalMs + "ms";
+    }
+
+    @GetMapping("/assets")
+    @Operation(summary = "Get supported assets", description = "Get list of all supported cryptocurrency assets")
+    public Map<String, Object> getSupportedAssets() {
+        Map<String, Object> result = new HashMap<>();
+        
+        Map<String, ScheduledTradingService.AssetConfig> assets = 
+            ScheduledTradingService.SUPPORTED_ASSETS;
+        
+        for (Map.Entry<String, ScheduledTradingService.AssetConfig> entry : assets.entrySet()) {
+            Map<String, Object> assetInfo = new HashMap<>();
+            assetInfo.put("symbol", entry.getValue().getSymbol());
+            assetInfo.put("quote", entry.getValue().getQuote());
+            assetInfo.put("pricePrecision", entry.getValue().getPricePrecision());
+            assetInfo.put("amountPrecision", entry.getValue().getAmountPrecision());
+            result.put(entry.getKey(), assetInfo);
+        }
+        
+        return result;
+    }
 }

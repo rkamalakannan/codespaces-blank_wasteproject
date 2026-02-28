@@ -1,110 +1,122 @@
 package com.hope.xchangepractice.service;
 
 import com.hope.xchangepractice.model.CryptoBar;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.knowm.xchange.Exchange;
-import org.knowm.xchange.ExchangeFactory;
-import org.knowm.xchange.binance.BinanceExchange;
-import org.knowm.xchange.binance.service.BinanceMarketDataServiceRaw;
-import org.knowm.xchange.currency.CurrencyPair;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
- * Fetches live OHLCV candlestick data from Binance via the XChange library.
- *
- * <h2>Why XChange?</h2>
- * XChange provides a single, unified Java API for 60+ crypto exchanges.
- * Switching from Binance to another exchange only requires changing the
- * {@code Exchange} implementation class — all downstream code stays the same.
- *
- * <h2>Why Binance?</h2>
- * Binance offers a public, unauthenticated REST endpoint for kline (OHLCV)
- * data, so no API key is required for read-only market analysis.
- *
- * <h2>XChange API used</h2>
- * We use {@link BinanceMarketDataServiceRaw#getBinanceKlines} which maps
- * directly to the Binance {@code GET /api/v3/klines} endpoint.
+ * Fetches live OHLCV candlestick data directly from Binance REST API.
+ * 
+ * This service uses direct HTTP calls to Binance instead of XChange library
+ * to avoid API compatibility issues.
  */
 @Slf4j
 @Service
 public class MarketDataService {
 
-    /**
-     * Number of historical bars to fetch per request.
-     * Ta4j needs at least 26 bars for MACD and 20 for Bollinger Bands.
-     * We fetch 100 to give all indicators enough warm-up data.
-     */
+    private static final String BINANCE_API_BASE = "https://api.binance.com";
     private static final int BAR_LIMIT = 100;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Fetches the most recent {@value #BAR_LIMIT} hourly OHLCV bars for the
      * given trading pair from Binance.
      *
-     * <p>XChange flow:
-     * <ol>
-     *   <li>Create a {@link BinanceExchange} instance (no credentials needed)</li>
-     *   <li>Cast its {@code MarketDataService} to {@link BinanceMarketDataServiceRaw}</li>
-     *   <li>Call {@code getBinanceKlines(pair, interval, limit, startTime, endTime)}</li>
-     *   <li>Map each kline to our {@link CryptoBar} model</li>
-     * </ol>
-     *
-     * @param symbol trading pair in XChange format, e.g. {@code "BTC/USDT"}
+     * @param symbol trading pair in format, e.g. {@code "BTCUSDT"} (no slash)
      * @return ordered list of {@link CryptoBar} objects (oldest → newest)
      * @throws IOException if the Binance REST call fails
      */
     public List<CryptoBar> fetchHourlyBars(String symbol) throws IOException {
-        log.info("Fetching {} hourly bars for {} from Binance via XChange", BAR_LIMIT, symbol);
-
-        // XChange: create a Binance exchange instance (public API, no key needed)
-        Exchange binance = ExchangeFactory.INSTANCE.createExchange(BinanceExchange.class);
-
-        // Cast to the Binance-specific raw service to access kline (OHLCV) data
-        BinanceMarketDataServiceRaw rawService =
-                (BinanceMarketDataServiceRaw) binance.getMarketDataService();
-
-        CurrencyPair pair = new CurrencyPair(symbol);
-
-        // Fetch klines: h1 interval, last BAR_LIMIT candles, no time filter
-        var klines = rawService.getKlines(pair, "1h", BAR_LIMIT);
-
-        return klines.stream()
-                .map(k -> CryptoBar.builder()
-                        .symbol(symbol)
-                        .openTime(Instant.ofEpochMilli(k.openTime).atZone(ZoneOffset.UTC))
-                        .open(k.openPrice)
-                        .high(k.highPrice)
-                        .low(k.lowPrice)
-                        .close(k.closePrice)
-                        .volume(k.volume)
-                        .build())
-                .collect(Collectors.toList());
+        log.info("Fetching {} hourly bars for {} from Binance", BAR_LIMIT, symbol);
+        
+        // Convert symbol format (BTC/USDT -> BTCUSDT)
+        String pair = symbol.replace("/", "");
+        
+        // Build Binance klines API URL
+        String url = String.format("%s/api/v3/klines?symbol=%s&interval=1h&limit=%d", 
+                                   BINANCE_API_BASE, pair, BAR_LIMIT);
+        
+        // Fetch data from Binance
+        String response = fetchFromBinance(url);
+        
+        // Parse JSON response
+        JsonNode klines = objectMapper.readTree(response);
+        
+        List<CryptoBar> bars = new ArrayList<>();
+        for (JsonNode kline : klines) {
+            CryptoBar bar = CryptoBar.builder()
+                    .symbol(symbol)
+                    .openTime(Instant.ofEpochMilli(kline.get(0).asLong()).atZone(ZoneOffset.UTC))
+                    .open(new BigDecimal(kline.get(1).asText()))
+                    .high(new BigDecimal(kline.get(2).asText()))
+                    .low(new BigDecimal(kline.get(3).asText()))
+                    .close(new BigDecimal(kline.get(4).asText()))
+                    .volume(new BigDecimal(kline.get(5).asText()))
+                    .build();
+            bars.add(bar);
+        }
+        
+        log.info("Successfully fetched {} bars for {}", bars.size(), symbol);
+        return bars;
     }
 
     /**
      * Returns the latest spot price for a trading pair.
-     *
-     * <p>Uses the standard XChange {@code MarketDataService.getTicker()} which
-     * calls Binance {@code GET /api/v3/ticker/bookTicker} under the hood.
      *
      * @param symbol e.g. {@code "BTC/USDT"}
      * @return current price
      * @throws IOException if the Binance REST call fails
      */
     public BigDecimal fetchCurrentPrice(String symbol) throws IOException {
-        log.info("Fetching current price for {} from Binance via XChange", symbol);
-
-        Exchange binance = ExchangeFactory.INSTANCE.createExchange(BinanceExchange.class);
-        CurrencyPair pair = new CurrencyPair(symbol);
-
-        // Standard XChange interface — works the same across all exchanges
-        var ticker = binance.getMarketDataService().getTicker(pair);
-        return ticker.getLast();
+        log.info("Fetching current price for {} from Binance", symbol);
+        
+        // Convert symbol format (BTC/USDT -> BTCUSDT)
+        String pair = symbol.replace("/", "");
+        
+        // Build Binance ticker API URL
+        String url = String.format("%s/api/v3/ticker/price?symbol=%s", BINANCE_API_BASE, pair);
+        
+        // Fetch data from Binance
+        String response = fetchFromBinance(url);
+        
+        // Parse JSON response
+        JsonNode ticker = objectMapper.readTree(response);
+        return new BigDecimal(ticker.get("price").asText());
+    }
+    
+    /**
+     * Helper method to fetch data from Binance API
+     */
+    private String fetchFromBinance(String url) throws IOException {
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(uri)
+                    .header("Accept", "application/json")
+                    .build();
+            
+            java.net.http.HttpResponse<String> response = client.send(request, 
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() != 200) {
+                throw new IOException("Binance API error: HTTP " + response.statusCode());
+            }
+            
+            return response.body();
+        } catch (java.net.URISyntaxException e) {
+            throw new IOException("Invalid URL: " + url, e);
+        } catch (java.net.http.HttpRequestTimeoutException e) {
+            throw new IOException("Request timeout", e);
+        }
     }
 }

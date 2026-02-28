@@ -47,7 +47,14 @@ public class KrakenFutureConfiguration {
     @Autowired
     BinanceFutureConfiguration binanceFutureConfiguration;
 
-    private Exchange exchange = createExchange();
+    private Exchange exchange;
+
+    private Exchange getExchange() {
+        if (exchange == null) {
+            exchange = createExchange();
+        }
+        return exchange;
+    }
 
     public KrakenFuturesTicker getFuturesPriceChange(Instrument instrument) throws IOException {
         return getTickers(instrument);
@@ -57,7 +64,7 @@ public class KrakenFutureConfiguration {
         return krakenSpotConfiguration.getKrakenSpotTicker(instrument);
     }
 
-    public Exchange createExchange() {
+    private Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
         spec.setApiKey("8TfYWFiQi7rfNeWcGw43VBMn+6vUEX5aXJFpC+9d2t9HhPfi+wvWtm+n");
         spec.setSecretKey("485DCqYfbb2hK4gsbB7NwPHz4esjfT1K9vvFdrP0Wwaq4+Qk8wirhxJHvVYKGTlenSrNawhleF+u2MLm57/k4ghO");
@@ -66,7 +73,7 @@ public class KrakenFutureConfiguration {
     }
 
     public KrakenFuturesTicker getTickers(Instrument instrument) throws IOException {
-        KrakenFuturesMarketDataServiceRaw marketDataService = (KrakenFuturesMarketDataServiceRaw) exchange
+        KrakenFuturesMarketDataServiceRaw marketDataService = (KrakenFuturesMarketDataServiceRaw) getExchange()
                 .getMarketDataService();
         return marketDataService.getKrakenFuturesTicker(instrument);
     }
@@ -251,7 +258,7 @@ public class KrakenFutureConfiguration {
 
         try {
             if (shouldBePlaced) {
-                orderId = exchange.getTradeService()
+                orderId = getExchange().getTradeService()
                         .placeMarketOrder(new MarketOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .originalAmount(originalAmount)
                                 .build());
@@ -292,7 +299,7 @@ public class KrakenFutureConfiguration {
         try {
 
             if (shouldBePlaced) {
-                String orderId = exchange.getTradeService()
+                String orderId = getExchange().getTradeService()
                         .placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .limitPrice(limitPrice)
                                 .originalAmount(originalAmount)
@@ -374,7 +381,7 @@ public class KrakenFutureConfiguration {
         stopPrice = priceDecimalPrecision(instrument, stopPrice);
 
         try {
-            String orderId = exchange.getTradeService()
+            String orderId = getExchange().getTradeService()
                     .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                             .intention(StopOrder.Intention.STOP_LOSS)
                             .stopPrice(stopPrice)
@@ -414,7 +421,7 @@ public class KrakenFutureConfiguration {
         stopPrice = priceDecimalPrecision(instrument, stopPrice);
         try {
             if (isAllowedTrade) {
-                String orderId = exchange.getTradeService()
+                String orderId = getExchange().getTradeService()
                         .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .intention(StopOrder.Intention.TAKE_PROFIT)
                                 .stopPrice(stopPrice)
@@ -451,18 +458,18 @@ public class KrakenFutureConfiguration {
 
     public void cancelTopFirstOrder(Instrument instrument) throws IOException {
 
-        List<LimitOrder> openOrders = exchange.getTradeService().getOpenOrders().getOpenOrders();
+        List<LimitOrder> openOrders = getExchange().getTradeService().getOpenOrders().getOpenOrders();
         if (!openOrders.isEmpty()) {
-            exchange.getTradeService().cancelOrder(openOrders.get(0).getId());
+            getExchange().getTradeService().cancelOrder(openOrders.get(0).getId());
         }
-        // exchange.getTradeService().cancelAllOrders(new
+        // getExchange().getTradeService().cancelAllOrders(new
         // DefaultCancelAllOrdersByInstrument(instrument));
 
     }
 
     public void checkAccount() throws IOException {
 
-        AccountInfo accountInfo = exchange.getAccountService().getAccountInfo();
+        AccountInfo accountInfo = getExchange().getAccountService().getAccountInfo();
         System.out.println(accountInfo);
         System.out.println(accountInfo.getWallet(Wallet.WalletFeature.FUTURES_TRADING).toString());
         System.out.println(Objects.requireNonNull(accountInfo.getWallet(Wallet.WalletFeature.FUTURES_TRADING))
@@ -470,7 +477,7 @@ public class KrakenFutureConfiguration {
     }
 
     public void checkOpenOrdersandCancelFirst(Instrument instrument) throws IOException {
-        OpenOrders openOrders = exchange.getTradeService().getOpenOrders();
+        OpenOrders openOrders = getExchange().getTradeService().getOpenOrders();
         System.out.println("Inside Cancelling Orders");
         if (!openOrders.getHiddenOrders().isEmpty()) {
             System.out.println("Before Cancelling Trigger Order the count was:" + openOrders.getHiddenOrders().size());
@@ -480,7 +487,7 @@ public class KrakenFutureConfiguration {
                     .forEach(arg0 -> {
                         try {
                             String orderId = arg0.getId();
-                            exchange.getTradeService()
+                            getExchange().getTradeService()
                                     .cancelOrder(new DefaultCancelOrderByInstrumentAndIdParams(instrument, orderId));
                             System.out.println("Cancelled Order" + orderId);
                         } catch (IOException e) {
@@ -489,14 +496,14 @@ public class KrakenFutureConfiguration {
                     });
         }
 
-        OpenOrders postOpenOrders = exchange.getTradeService().getOpenOrders();
+        OpenOrders postOpenOrders = getExchange().getTradeService().getOpenOrders();
 
         System.out.println("After Cancelling Trigger Order the count is:" + postOpenOrders.getHiddenOrders().size());
 
     }
 
     public List<OpenPosition> getPositions() throws IOException {
-        List<OpenPosition> openPositions = exchange.getTradeService().getOpenPositions().getOpenPositions();
+        List<OpenPosition> openPositions = getExchange().getTradeService().getOpenPositions().getOpenPositions();
         for (OpenPosition openPosition : openPositions) {
             System.out.println(openPosition);
         }

@@ -23,21 +23,24 @@ import org.springframework.stereotype.Component;
 @Component
 public class KrakenSpotConfiguration {
 
-    private Exchange krakenSpotExchange = getKrakenSpotExchangeSettings();
+    private Exchange krakenSpotExchange;
 
-    public Exchange getKrakenSpotExchangeSettings() {
-        return ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
+    private Exchange getKrakenSpotExchangeSettings() {
+        if (krakenSpotExchange == null) {
+            krakenSpotExchange = ExchangeFactory.INSTANCE.createExchange(KrakenExchange.class);
+        }
+        return krakenSpotExchange;
     }
 
     public KrakenTicker getKrakenSpotTicker(Instrument instrument) throws IOException {
-        KrakenMarketDataServiceRaw marketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
+        KrakenMarketDataServiceRaw marketDataService = (KrakenMarketDataServiceRaw) getKrakenSpotExchangeSettings()
                 .getMarketDataService();
 
         return marketDataService.getKrakenTicker(new CurrencyPair(instrument.getBase().getCurrencyCode(), "USD"));
     }
 
     public KrakenAssetPairs getKrakenAssetPairs(Instrument instrument) throws IOException {
-        KrakenMarketDataServiceRaw krakenMarketDataService = (KrakenMarketDataServiceRaw) krakenSpotExchange
+        KrakenMarketDataServiceRaw krakenMarketDataService = (KrakenMarketDataServiceRaw) getKrakenSpotExchangeSettings()
                 .getMarketDataService();
 
         KrakenAssetPairs krakenAssetPairs = krakenMarketDataService.getKrakenAssetPairs();

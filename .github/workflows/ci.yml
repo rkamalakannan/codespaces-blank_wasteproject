@@ -2,9 +2,9 @@ name: CI — Build, Test & Deploy
 
 on:
   push:
-    branches: [ kite_v1 ]
+    branches: [ session/agent_8eb05e68-d4e5-46a8-a17d-4782a3e52005 ]
   pull_request:
-    branches: [ kite_v1 ]
+    branches: [ session/agent_8eb05e68-d4e5-46a8-a17d-4782a3e52005 ]
 
 jobs:
   # ─── Job 1: Build & Test ────────────────────────────────────────────────────

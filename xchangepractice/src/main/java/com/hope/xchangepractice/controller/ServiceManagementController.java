@@ -6,7 +6,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Service Management Controller — provides endpoints to stop/start/restart the application.
+ * Service Management Controller — provides endpoints to stop the application.
  * 
  * These endpoints are useful for Railway deployments where you need to manage the service lifecycle.
  * 
@@ -17,11 +17,9 @@ import org.springframework.web.bind.annotation.*;
 public class ServiceManagementController {
 
     private final ConfigurableApplicationContext context;
-    private final SpringApplication application;
 
-    public ServiceManagementController(ConfigurableApplicationContext context, SpringApplication application) {
+    public ServiceManagementController(ConfigurableApplicationContext context) {
         this.context = context;
-        this.application = application;
     }
 
     /**
@@ -46,7 +44,7 @@ public class ServiceManagementController {
             new Thread(() -> {
                 try {
                     Thread.sleep(1000); // Give time for response to be sent
-                    context.close();
+                    System.exit(0); // Force stop the application
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -63,29 +61,6 @@ public class ServiceManagementController {
                 "Service is already stopped"
             );
         }
-    }
-
-    /**
-     * POST /api/manage/restart — Restart the service
-     * Note: This will restart the entire application!
-     */
-    @PostMapping("/restart")
-    public StatusResponse restartService() {
-        new Thread(() -> {
-            try {
-                Thread.sleep(1000); // Give time for response to be sent
-                context.close();
-                String[] args = {};
-                application.run(args);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }).start();
-        return new StatusResponse(
-            "RESTARTING",
-            context.getApplicationName(),
-            "Service is restarting..."
-        );
     }
 
     /**

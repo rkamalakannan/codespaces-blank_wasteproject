@@ -1,5 +1,5 @@
 [build]
-builder = "maven"
+builder = "docker"
 
 [deploy]
 healthcheckPath = "/api-docs/swagger-config"

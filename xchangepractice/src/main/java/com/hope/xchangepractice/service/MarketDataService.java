@@ -19,7 +19,7 @@ import java.util.List;
 
 /**
  * Fetches live OHLCV candlestick data directly from Binance REST API.
- * 
+ *
  * This service uses direct HTTP calls to Binance instead of XChange library
  * to avoid API compatibility issues.
  */
@@ -41,20 +41,20 @@ public class MarketDataService {
      */
     public List<CryptoBar> fetchHourlyBars(String symbol) throws IOException {
         log.info("Fetching {} hourly bars for {} from Binance", BAR_LIMIT, symbol);
-        
+
         // Convert symbol format (BTC/USDT -> BTCUSDT)
         String pair = symbol.replace("/", "");
-        
+
         // Build Binance klines API URL
-        String url = String.format("%s/api/v3/klines?symbol=%s&interval=1h&limit=%d", 
+        String url = String.format("%s/api/v3/klines?symbol=%s&interval=1h&limit=%d",
                                    BINANCE_API_BASE, pair, BAR_LIMIT);
-        
+
         // Fetch data from Binance
         String response = fetchFromBinance(url);
-        
+
         // Parse JSON response
         JsonNode klines = objectMapper.readTree(response);
-        
+
         List<CryptoBar> bars = new ArrayList<>();
         for (JsonNode kline : klines) {
             CryptoBar bar = CryptoBar.builder()
@@ -68,7 +68,7 @@ public class MarketDataService {
                     .build();
             bars.add(bar);
         }
-        
+
         log.info("Successfully fetched {} bars for {}", bars.size(), symbol);
         return bars;
     }
@@ -82,54 +82,45 @@ public class MarketDataService {
      */
     public BigDecimal fetchCurrentPrice(String symbol) throws IOException {
         log.info("Fetching current price for {} from Binance", symbol);
-        
+
         // Convert symbol format (BTC/USDT -> BTCUSDT)
         String pair = symbol.replace("/", "");
-        
+
         // Build Binance ticker API URL
         String url = String.format("%s/api/v3/ticker/price?symbol=%s", BINANCE_API_BASE, pair);
-        
+
         // Fetch data from Binance
         String response = fetchFromBinance(url);
-        
+
         // Parse JSON response
         JsonNode ticker = objectMapper.readTree(response);
         return new BigDecimal(ticker.get("price").asText());
     }
-    
+
     /**
-     * Helper method to fetch data from Binance API using traditional URLConnection
+     * Helper method to fetch data from Binance API
      */
-    private String fetchFromBinance(String urlStr) throws IOException {
-        HttpURLConnection connection = null;
+    private String fetchFromBinance(String url) throws IOException {
         try {
-            URL url = new URL(urlStr);
-            connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            connection.setRequestProperty("Accept", "application/json");
-            connection.setConnectTimeout(10000); // 10 seconds
-            connection.setReadTimeout(10000);    // 10 seconds
-            
-            int responseCode = connection.getResponseCode();
-            if (responseCode != 200) {
-                throw new IOException("Binance API error: HTTP " + responseCode);
+            java.net.URI uri = new java.net.URI(url);
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(uri)
+                    .header("Accept", "application/json")
+                    .build();
+
+            java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() != 200) {
+                throw new IOException("Binance API error: HTTP " + response.statusCode());
             }
-            
-            StringBuilder response = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(connection.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    response.append(line);
-                }
-            }
-            
-            return response.toString();
-            
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
+
+            return response.body();
+        } catch (java.net.URISyntaxException e) {
+            throw new IOException("Invalid URL: " + url, e);
+        } catch (java.net.http.HttpRequestTimeoutException e) {
+            throw new IOException("Request timeout", e);
         }
     }
 }

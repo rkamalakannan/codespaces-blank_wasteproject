@@ -6,8 +6,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -94,32 +98,38 @@ public class MarketDataService {
     }
     
     /**
-     * Helper method to fetch data from Binance API
+     * Helper method to fetch data from Binance API using traditional URLConnection
      */
-    private String fetchFromBinance(String url) throws IOException {
+    private String fetchFromBinance(String urlStr) throws IOException {
+        HttpURLConnection connection = null;
         try {
-            java.net.URI uri = new java.net.URI(url);
-            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                    .uri(uri)
-                    .header("Accept", "application/json")
-                    .build();
+            URL url = new URL(urlStr);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setConnectTimeout(10000); // 10 seconds
+            connection.setReadTimeout(10000);    // 10 seconds
             
-            java.net.http.HttpResponse<String> response = client.send(request, 
-                    java.net.http.HttpResponse.BodyHandlers.ofString());
-            
-            if (response.statusCode() != 200) {
-                throw new IOException("Binance API error: HTTP " + response.statusCode());
+            int responseCode = connection.getResponseCode();
+            if (responseCode != 200) {
+                throw new IOException("Binance API error: HTTP " + responseCode);
             }
             
-            return response.body();
-        } catch (java.net.URISyntaxException e) {
-            throw new IOException("Invalid URL: " + url, e);
-        } catch (java.net.http.HttpTimeoutException e) {
-            throw new IOException("Request timeout", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Request interrupted", e);
+            StringBuilder response = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(connection.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+            }
+            
+            return response.toString();
+            
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 }

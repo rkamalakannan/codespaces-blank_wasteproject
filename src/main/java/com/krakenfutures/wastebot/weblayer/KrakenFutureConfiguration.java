@@ -11,11 +11,6 @@ import java.math.RoundingMode;
 import java.util.List;
 import java.util.Objects;
 
-import org.knowm.xchange.cryptowatch.CryptowatchExchange;
-import org.knowm.xchange.cryptowatch.dto.marketdata.CryptowatchSummary;
-import org.knowm.xchange.cryptowatch.service.CryptowatchMarketDataServiceRaw;
-import org.knowm.xchange.currency.CurrencyPair;
-
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
@@ -53,20 +48,13 @@ public class KrakenFutureConfiguration {
     BinanceFutureConfiguration binanceFutureConfiguration;
 
     private Exchange exchange = createExchange();
-    private Exchange cryptoExchange = getCryptoWatchExchangeConfiguration();
 
-    public Exchange getCryptoWatchExchangeConfiguration() {
-        return ExchangeFactory.INSTANCE.createExchange(CryptowatchExchange.class);
+    public KrakenFuturesTicker getFuturesPriceChange(Instrument instrument) throws IOException {
+        return getTickers(instrument);
     }
 
-    public CryptowatchSummary getFuturesPriceChange(Instrument instrument) throws IOException {
-        CryptowatchMarketDataServiceRaw marketDataService = (CryptowatchMarketDataServiceRaw) cryptoExchange.getMarketDataService();
-        return marketDataService.getCryptowatchSummary(new CurrencyPair("", instrument.getBase().getCurrencyCode()+"usd-perpetual-future-multi"), "kraken-futures");
-    }
-
-    public CryptowatchSummary getSpotPriceChange(Instrument instrument) throws IOException {
-        CryptowatchMarketDataServiceRaw marketDataService = (CryptowatchMarketDataServiceRaw) cryptoExchange.getMarketDataService();
-        return marketDataService.getCryptowatchSummary(new CurrencyPair(instrument.getBase(), instrument.getCounter()), "kraken");
+    public KrakenTicker getSpotPriceChange(Instrument instrument) throws IOException {
+        return krakenSpotConfiguration.getKrakenSpotTicker(instrument);
     }
 
     public Exchange createExchange() {
@@ -111,14 +99,24 @@ public class KrakenFutureConfiguration {
 
         BigDecimal predictedPrice;
 
-        BigDecimal futureBigDecimalPercentage = getFuturesPriceChange(instrument).getPrice()
-                .getChange().getPercentage();
-        BigDecimal spotBigDecimalPercentage = getSpotPriceChange(instrument).getPrice()
-                .getChange().getPercentage();
+        KrakenFuturesTicker futuresTicker = getFuturesPriceChange(instrument);
+        KrakenTicker spotTicker = getSpotPriceChange(instrument);
+
+        // Calculate percentage change from ticker data
+        BigDecimal futuresLast = futuresTicker.getMarkPrice();
+        BigDecimal futuresOpen = futuresTicker.getOpenPrice();
+        BigDecimal futureBigDecimalPercentage = futuresOpen.compareTo(BigDecimal.ZERO) > 0
+            ? futuresLast.subtract(futuresOpen).divide(futuresOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
+            : BigDecimal.ZERO;
+
+        BigDecimal spotLast = spotTicker.getLast().getPrice();
+        BigDecimal spotOpen = spotTicker.getOpen();
+        BigDecimal spotBigDecimalPercentage = spotOpen.compareTo(BigDecimal.ZERO) > 0
+            ? spotLast.subtract(spotOpen).divide(spotOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
+            : BigDecimal.ZERO;
+
         BigDecimal priceDifference;
-        priceDifference = getSpotPriceChange(instrument).getPrice().getChange()
-                .getAbsolute().subtract(getFuturesPriceChange(instrument).getPrice()
-                        .getChange().getAbsolute());
+        priceDifference = spotLast.subtract(futuresLast);
 
         System.out
                 .println("future" + futureBigDecimalPercentage);
@@ -130,7 +128,7 @@ public class KrakenFutureConfiguration {
         System.out.println(
                 "future price last" + krakenFutureLastValue);
         System.out.println(
-                "spot price last " + getSpotPriceChange(instrument).getPrice().getLast());
+                "spot price last " + spotLast);
 
         if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
             if (priceDifference.compareTo(BigDecimal.ZERO) > 0)

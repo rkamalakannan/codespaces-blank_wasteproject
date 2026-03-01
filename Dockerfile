@@ -1,6 +1,6 @@
 # Use the official maven/Java 11 image to create a build artifact.
 # https://hub.docker.com/_/maven
-FROM eclipse-temurin:17-jdk-alpine AS build-env
+FROM maven:3.8.3-eclipse-temurin-17 AS build-env
 
 # Set the working directory to /app
 WORKDIR /app
@@ -12,10 +12,10 @@ COPY src ./src
 # Download dependencies and build a release artifact.
 RUN mvn package -DskipTests
 
-# Use OpenJDK for base image.
-# https://hub.docker.com/_/openjdk
+# Use Eclipse Temurin for base image.
+# https://hub.docker.com/_/eclipse-temurin
 # https://docs.docker.com/develop/develop-images/multistage-build/#use-multi-stage-builds
-FROM openjdk:17-alpine
+FROM eclipse-temurin:17-jdk-alpine
 
 # Copy the jar to the production image from the builder stage.
 COPY --from=build-env /app/target/wastebot-*.jar /WasteBot.jar

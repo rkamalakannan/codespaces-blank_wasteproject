@@ -39,6 +39,9 @@ public class ScheduledTradingService {
     @Autowired
     private KrakenFutureConfiguration krakenConfiguration;
 
+    @Autowired(required = false)
+    private AssetQuantityService assetQuantityService;
+
     // Configurable polling interval (default 30 seconds - balanced for crypto markets)
     @Value("${trading.scheduler.interval-ms:30000}")
     private long pollingIntervalMs;
@@ -165,8 +168,9 @@ public class ScheduledTradingService {
             Instrument instrument = new org.knowm.xchange.currency.CurrencyPair(asset, "USD");
             KrakenFuturesTicker futuresTicker = krakenConfiguration.getFuturesPriceChange(instrument);
             
-            // Execute trade with configured amount
-            BigDecimal amount = adjustAmountPrecision(config, defaultAmount);
+            // Execute trade with per-asset quantity (each asset has its own unique quantity setting)
+            BigDecimal quantity = getAssetQuantity(asset);
+            BigDecimal amount = adjustAmountPrecision(config, quantity);
             krakenConfiguration.placeOrder(instrument, amount);
             
             lastTradeTime.put(asset, System.currentTimeMillis());
@@ -251,6 +255,17 @@ public class ScheduledTradingService {
     public void setPollingIntervalMs(long intervalMs) {
         this.pollingIntervalMs = intervalMs;
         logger.info("Polling interval updated to {}ms", intervalMs);
+    }
+
+    /**
+     * Get quantity for a specific asset - ensures each asset maintains its own specific quantity setting
+     * Priority: 1) Per-asset override from AssetQuantityService 2) Global default
+     */
+    private BigDecimal getAssetQuantity(String asset) {
+        if (assetQuantityService != null) {
+            return assetQuantityService.getQuantity(asset);
+        }
+        return defaultAmount;
     }
 
     // ==================== Inner Class for Asset Configuration ====================

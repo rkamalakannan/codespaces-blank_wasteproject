@@ -13,6 +13,7 @@ import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,6 +39,9 @@ public class BotController {
 
     @Autowired(required = false)
     ScheduledTradingService scheduledTradingService;
+
+    @Autowired(required = false)
+    com.krakenfutures.wastebot.service.AssetQuantityService assetQuantityService;
 
     // Default amount for manual trades
     @Value("${trading.default-amount:0.01}")
@@ -181,7 +185,7 @@ public class BotController {
     public Map<String, Object> getSupportedAssets() {
         Map<String, Object> result = new HashMap<>();
         
-        Map<String, ScheduledTradingService.AssetConfig> assets = 
+        Map<String, ScheduledTradingService.AssetConfig> assets =
             ScheduledTradingService.SUPPORTED_ASSETS;
         
         for (Map.Entry<String, ScheduledTradingService.AssetConfig> entry : assets.entrySet()) {
@@ -190,9 +194,97 @@ public class BotController {
             assetInfo.put("quote", entry.getValue().getQuote());
             assetInfo.put("pricePrecision", entry.getValue().getPricePrecision());
             assetInfo.put("amountPrecision", entry.getValue().getAmountPrecision());
+            
+            // Include per-asset quantity if available
+            if (assetQuantityService != null) {
+                assetInfo.put("quantity", assetQuantityService.getQuantity(entry.getKey()));
+                assetInfo.put("hasOverride", assetQuantityService.hasOverride(entry.getKey()));
+            }
+            
             result.put(entry.getKey(), assetInfo);
         }
         
         return result;
+    }
+
+    // ==================== Per-Asset Quantity Endpoints ====================
+
+    @PostMapping("/assets/{asset}/quantity/{quantity}")
+    @Operation(summary = "Set asset quantity", description = "Set unique quantity for a specific asset - ensures NO universal quantity is applied")
+    public String setAssetQuantity(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC")
+            @PathVariable String asset,
+            @Parameter(description = "Quantity to trade", example = "0.05")
+            @PathVariable BigDecimal quantity) {
+        
+        if (assetQuantityService == null) {
+            return "Asset quantity service not available";
+        }
+        
+        ScheduledTradingService.AssetConfig config =
+            ScheduledTradingService.SUPPORTED_ASSETS.get(asset.toUpperCase());
+        if (config == null) {
+            return "Unsupported asset: " + asset;
+        }
+        
+        assetQuantityService.setQuantity(asset, quantity, config.getAmountPrecision());
+        return "Quantity for " + asset + " set to " + quantity;
+    }
+
+    @GetMapping("/assets/{asset}/quantity")
+    @Operation(summary = "Get asset quantity", description = "Get the quantity setting for a specific asset")
+    public Map<String, Object> getAssetQuantity(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC")
+            @PathVariable String asset) {
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        if (assetQuantityService == null) {
+            result.put("error", "Asset quantity service not available");
+            return result;
+        }
+        
+        ScheduledTradingService.AssetConfig config =
+            ScheduledTradingService.SUPPORTED_ASSETS.get(asset.toUpperCase());
+        if (config == null) {
+            result.put("error", "Unsupported asset: " + asset);
+            return result;
+        }
+        
+        result.put("asset", asset.toUpperCase());
+        result.put("quantity", assetQuantityService.getQuantity(asset));
+        result.put("hasOverride", assetQuantityService.hasOverride(asset));
+        result.put("defaultAmount", assetQuantityService.getDefaultAmount());
+        
+        return result;
+    }
+
+    @DeleteMapping("/assets/{asset}/quantity")
+    @Operation(summary = "Clear asset quantity", description = "Clear the quantity override for an asset, reverting to default")
+    public String clearAssetQuantity(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC")
+            @PathVariable String asset) {
+        
+        if (assetQuantityService == null) {
+            return "Asset quantity service not available";
+        }
+        
+        ScheduledTradingService.AssetConfig config =
+            ScheduledTradingService.SUPPORTED_ASSETS.get(asset.toUpperCase());
+        if (config == null) {
+            return "Unsupported asset: " + asset;
+        }
+        
+        assetQuantityService.clearQuantity(asset);
+        return "Quantity override cleared for " + asset + ", using default";
+    }
+
+    @GetMapping("/assets/quantities")
+    @Operation(summary = "Get all asset quantities", description = "Get quantity settings for all supported assets")
+    public Map<String, BigDecimal> getAllAssetQuantities() {
+        if (assetQuantityService == null) {
+            return Map.of();
+        }
+        return assetQuantityService.getAllQuantities(ScheduledTradingService.SUPPORTED_ASSETS);
     }
 }

@@ -1,6 +1,6 @@
 # Use the official maven/Java 11 image to create a build artifact.
 # https://hub.docker.com/_/maven
-FROM eclipse-temurin:17-jre-alpine AS build-env
+FROM eclipse-temurin:17-jdk-alpine AS build-env
 
 # Set the working directory to /app
 WORKDIR /app

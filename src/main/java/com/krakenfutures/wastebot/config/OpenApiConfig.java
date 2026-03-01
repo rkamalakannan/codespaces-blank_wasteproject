@@ -13,8 +13,8 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         Server httpsServer = new Server();
-        httpsServer.setUrl("https://{host}");
-        httpsServer.setDescription("HTTPS Production Server");
+        httpsServer.setUrl("/");
+        httpsServer.setDescription("Production Server (HTTPS)");
         
         return new OpenAPI()
                 .addServersItem(httpsServer)

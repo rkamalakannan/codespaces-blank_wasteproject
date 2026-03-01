@@ -21,7 +21,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.krakenfutures.wastebot.service.KrakenOHLCService;
 import com.krakenfutures.wastebot.service.ScheduledTradingService;
+import com.krakenfutures.wastebot.service.KrakenOHLCService.OHLCData;
 import com.krakenfutures.wastebot.weblayer.KrakenFutureConfiguration;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +44,9 @@ public class BotController {
 
     @Autowired(required = false)
     com.krakenfutures.wastebot.service.AssetQuantityService assetQuantityService;
+
+    @Autowired(required = false)
+    KrakenOHLCService krakenOHLCService;
 
     // Default amount for manual trades
     @Value("${trading.default-amount:0.01}")
@@ -286,5 +291,84 @@ public class BotController {
             return Map.of();
         }
         return assetQuantityService.getAllQuantities(ScheduledTradingService.SUPPORTED_ASSETS);
+    }
+
+    // ==================== OHLC Data Endpoints for Backtesting ====================
+
+    @GetMapping("/ohlc/{asset}")
+    @Operation(summary = "Get OHLC data", description = "Get OHLC candlestick data for backtesting. Interval: 1m, 5m, 15m, 1h, 4h, 1D, 1W, 1M")
+    public Map<String, Object> getOHLCData(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC")
+            @PathVariable String asset,
+            @Parameter(description = "OHLC interval (1m, 5m, 15m, 1h, 4h, 1D, 1W, 1M)", example = "1h")
+            @RequestParam(defaultValue = "1h") String interval,
+            @Parameter(description = "Start time in ISO format (optional)", example = "2025-01-01T00:00:00")
+            @RequestParam(required = false) String startTime,
+            @Parameter(description = "End time in ISO format (optional)", example = "2026-01-01T00:00:00")
+            @RequestParam(required = false) String endTime) throws IOException {
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        if (krakenOHLCService == null) {
+            result.put("error", "OHLC service not available");
+            return result;
+        }
+        
+        CurrencyPair pair = new CurrencyPair(asset.toUpperCase(), "USD");
+        KrakenOHLCService.Interval ohlcInterval = KrakenOHLCService.Interval.fromString(interval);
+        
+        try {
+            List<OHLCData> ohlcData;
+            
+            if (startTime != null && endTime != null) {
+                // Get data for specific date range
+                java.time.LocalDateTime start = java.time.LocalDateTime.parse(startTime);
+                java.time.LocalDateTime end = java.time.LocalDateTime.parse(endTime);
+                ohlcData = krakenOHLCService.getOHLCDataForDateRange(pair, ohlcInterval, start, end);
+            } else {
+                // Get data for past year (default)
+                ohlcData = krakenOHLCService.getOHLCDataForPastYear(pair, ohlcInterval);
+            }
+            
+            result.put("asset", asset.toUpperCase());
+            result.put("interval", interval);
+            result.put("count", ohlcData.size());
+            result.put("data", ohlcData);
+            
+        } catch (Exception e) {
+            result.put("error", "Failed to retrieve OHLC data: " + e.getMessage());
+        }
+        
+        return result;
+    }
+
+    @GetMapping("/ohlc/{asset}/latest")
+    @Operation(summary = "Get latest OHLC candle", description = "Get the most recent OHLC candle for an asset")
+    public Map<String, Object> getLatestOHLC(
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC")
+            @PathVariable String asset,
+            @Parameter(description = "OHLC interval (1m, 5m, 15m, 1h, 4h, 1D, 1W, 1M)", example = "1h")
+            @RequestParam(defaultValue = "1h") String interval) throws IOException {
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        if (krakenOHLCService == null) {
+            result.put("error", "OHLC service not available");
+            return result;
+        }
+        
+        CurrencyPair pair = new CurrencyPair(asset.toUpperCase(), "USD");
+        KrakenOHLCService.Interval ohlcInterval = KrakenOHLCService.Interval.fromString(interval);
+        
+        try {
+            OHLCData latest = krakenOHLCService.getLatestOHLC(pair, ohlcInterval);
+            result.put("asset", asset.toUpperCase());
+            result.put("interval", interval);
+            result.put("latest", latest);
+        } catch (Exception e) {
+            result.put("error", "Failed to retrieve latest OHLC: " + e.getMessage());
+        }
+        
+        return result;
     }
 }

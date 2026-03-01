@@ -29,4 +29,4 @@ EXPOSE  8090
 
 # Run the web service on container startup.
 
-CMD ["java","-Djavax.net.debug=ssl","-Djdk.tls.client.protocols=TLSv1.2","-Dhttps.protocols=TLSv1.2","-jar", "/WasteBot.jar"]
+CMD ["java","-jar", "/WasteBot.jar"]

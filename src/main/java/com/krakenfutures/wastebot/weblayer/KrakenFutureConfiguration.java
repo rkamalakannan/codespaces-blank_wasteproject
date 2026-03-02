@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
@@ -48,6 +50,10 @@ public class KrakenFutureConfiguration {
     BinanceFutureConfiguration binanceFutureConfiguration;
 
     private Exchange exchange;
+
+    // Track the quantity used to open each position (key: instrument base currency)
+    // This ensures we close positions with the exact same quantity used to open them
+    private final Map<String, BigDecimal> positionQuantities = new ConcurrentHashMap<>();
 
     private Exchange getExchange() {
         if (exchange == null) {
@@ -170,6 +176,32 @@ public class KrakenFutureConfiguration {
     public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
         // checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
+        
+        // Check if there's already an open position for this instrument
+        // If yes, wait for it to be fully closed before opening a new one
+        String instrumentKey = instrument.getBase().getCurrencyCode();
+        OpenPosition existingPosition = openPositionsList.stream()
+                .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
+                        .equals(instrument.getBase().getCurrencyCode()))
+                .findFirst().orElse(null);
+        
+        if (existingPosition != null) {
+            // Position already exists for this asset - use the tracked quantity to close it
+            BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
+            if (trackedQuantity != null) {
+                originalAmount = trackedQuantity;
+                System.out.println("Using tracked quantity " + originalAmount + " for existing position on " + instrumentKey);
+            }
+            
+            // Skip placing new orders - we already have an open position for this asset
+            // Wait for the existing position to be fully closed before opening a new one
+            System.out.println("Position already exists for " + instrumentKey + ", waiting for it to be fully closed before opening new position");
+            return;
+        } else {
+            // No existing position - this is a new position, store the quantity
+            positionQuantities.put(instrumentKey, originalAmount);
+            System.out.println("Stored opening quantity " + originalAmount + " for " + instrumentKey);
+        }
 
         String triggerOrderType = "";
 
@@ -374,12 +406,26 @@ public class KrakenFutureConfiguration {
         BigDecimal stopPrice;
         OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                 .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny().orElse(null);
+        
+        // Use the SAME quantity that was used to open the position
+        String instrumentKey = instrument.getBase().getCurrencyCode();
+        if (openPosition != null) {
+            // Use the tracked quantity to ensure we close with the same amount used to open
+            BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
+            if (trackedQuantity != null) {
+                originalAmount = trackedQuantity;
+                System.out.println("Stop Order - Using tracked quantity: " + originalAmount);
+            } else {
+                // Fallback to position size if not tracked
+                originalAmount = openPosition.getSize();
+            }
+        }
+        
         if (bidType.equals("BID")) {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {
                     price = openPosition.getPrice();
                     stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
-                    originalAmount = openPosition.getSize();
                 }
                 stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
             }
@@ -424,12 +470,25 @@ public class KrakenFutureConfiguration {
         boolean shouldBePlaced = true;
 
         BigDecimal positionSize = BigDecimal.ZERO;
+        
+        // Use the SAME quantity that was used to open the position
+        String instrumentKey = instrument.getBase().getCurrencyCode();
         if (openPositionsList.size() > 0) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                     .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny().orElse(null);
-            if (!openPosition.equals(null))
-                positionSize = openPosition.getSize();
-            positionSize = originalAmount;
+            if (openPosition != null) {
+                // Use the tracked quantity to ensure we close with the same amount used to open
+                BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
+                if (trackedQuantity != null) {
+                    positionSize = trackedQuantity;
+                    System.out.println("Take Profit Order - Using tracked quantity: " + positionSize);
+                } else {
+                    // Fallback to position size if not tracked
+                    positionSize = openPosition.getSize();
+                }
+            } else {
+                positionSize = originalAmount;
+            }
         } else {
             positionSize = originalAmount;
         }
@@ -522,10 +581,42 @@ public class KrakenFutureConfiguration {
 
     public List<OpenPosition> getPositions() throws IOException {
         List<OpenPosition> openPositions = getExchange().getTradeService().getOpenPositions().getOpenPositions();
+        
+        // Clean up position quantities for positions that no longer exist
+        if (openPositions.isEmpty()) {
+            positionQuantities.clear();
+            System.out.println("All positions closed, cleared tracked quantities");
+        } else {
+            // Remove tracking for positions that have been closed
+            positionQuantities.keySet().retainAll(
+                openPositions.stream()
+                    .map(p -> p.getInstrument().getBase().getCurrencyCode())
+                    .collect(java.util.stream.Collectors.toSet())
+            );
+        }
+        
         for (OpenPosition openPosition : openPositions) {
             System.out.println(openPosition);
         }
         return openPositions;
+    }
+
+    /**
+     * Get the tracked quantity for a specific instrument
+     * @param instrumentKey the base currency code (e.g., "BTC")
+     * @return the quantity used to open the position, or null if not tracked
+     */
+    public BigDecimal getTrackedQuantity(String instrumentKey) {
+        return positionQuantities.get(instrumentKey);
+    }
+
+    /**
+     * Clear the tracked quantity for a specific instrument
+     * Call this when a position is fully closed
+     * @param instrumentKey the base currency code (e.g., "BTC")
+     */
+    public void clearTrackedQuantity(String instrumentKey) {
+        positionQuantities.remove(instrumentKey);
     }
 
     public List<KrakenFuturesOpenPosition> getPositionsRaw() throws IOException {
@@ -541,3 +632,4 @@ public class KrakenFutureConfiguration {
     }
 
 }
+

@@ -22,7 +22,7 @@ trading.default-amount = "0.01"
 trading.max-positions = "3"
 
 # Active assets to trade (BTC,ETH,SOL by default)
-trading.active-assets = "BTC,ETH,SOL"
+trading.active-assets = "BCH"
 
 # ==================== Kraken API - PRODUCTION KEYS ====================
 # IMPORTANT: Replace with actual production keys before enabling trading

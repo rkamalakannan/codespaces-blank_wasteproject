@@ -5,14 +5,6 @@
 
 package com.krakenfutures.wastebot.weblayer;
 
-import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.knowm.xchange.Exchange;
 import org.knowm.xchange.ExchangeFactory;
 import org.knowm.xchange.ExchangeSpecification;
@@ -36,8 +28,15 @@ import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndI
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
- *
  * @author vscode
  */
 @Component
@@ -72,12 +71,12 @@ public class KrakenFutureConfiguration {
 
     private Exchange createExchange() {
         ExchangeSpecification spec = new ExchangeSpecification(KrakenFuturesExchange.class);
-        
+
         // Use environment variables for API credentials (production-ready)
         String apiKey = System.getenv("KRAKEN_API_KEY");
         String secretKey = System.getenv("KRAKEN_SECRET_KEY");
         String sandboxEnabled = System.getenv("KRAKEN_SANDBOX_ENABLED");
-        
+
         // Fallback to default sandbox keys if environment variables not set
         if (apiKey == null || apiKey.isEmpty()) {
             apiKey = "xcqetVdEl0DHHZuTXRWOY8xZudErAZgUUHE41PuLYStO3ggiiv+EIrGI";
@@ -85,14 +84,14 @@ public class KrakenFutureConfiguration {
         if (secretKey == null || secretKey.isEmpty()) {
             secretKey = "bvqN0c8JSNS+cg/P6leDIb4uMVQVBts5mG2ZwhKXxB9N0n/17VdB0i5HqPO3gL91wbWcy2fGP83wMnl6Sxg/oP5K";
         }
-        
+
         spec.setApiKey(apiKey);
         spec.setSecretKey(secretKey);
-        
+
         // Use sandbox by default unless explicitly disabled
         boolean useSandbox = (sandboxEnabled == null) || "true".equalsIgnoreCase(sandboxEnabled);
         spec.setExchangeSpecificParametersItem(Exchange.USE_SANDBOX, useSandbox);
-        
+
         return ExchangeFactory.INSTANCE.createExchange(spec);
     }
 
@@ -137,14 +136,14 @@ public class KrakenFutureConfiguration {
         BigDecimal futuresLast = futuresTicker.getMarkPrice();
         BigDecimal futuresOpen = futuresTicker.getOpen24H();
         BigDecimal futureBigDecimalPercentage = futuresOpen.compareTo(BigDecimal.ZERO) > 0
-            ? futuresLast.subtract(futuresOpen).divide(futuresOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
-            : BigDecimal.ZERO;
+                ? futuresLast.subtract(futuresOpen).divide(futuresOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
+                : BigDecimal.ZERO;
 
         BigDecimal spotLast = spotTicker.getClose().getPrice();
         BigDecimal spotOpen = spotTicker.getOpen();
         BigDecimal spotBigDecimalPercentage = spotOpen.compareTo(BigDecimal.ZERO) > 0
-            ? spotLast.subtract(spotOpen).divide(spotOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
-            : BigDecimal.ZERO;
+                ? spotLast.subtract(spotOpen).divide(spotOpen, 6, BigDecimal.ROUND_HALF_UP).multiply(BigDecimal.valueOf(100))
+                : BigDecimal.ZERO;
 
         BigDecimal priceDifference;
         priceDifference = spotLast.subtract(futuresLast);
@@ -173,10 +172,76 @@ public class KrakenFutureConfiguration {
         return predictedPrice;
     }
 
-    public void placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
+    /**
+     * Result class for order placement operations
+     */
+    public static class OrderResult {
+        private final boolean success;
+        private final String message;
+
+        public OrderResult(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+    }
+
+    /**
+     * Check if an open position exists for the given instrument
+     *
+     * @param instrument the trading instrument
+     * @return OrderResult with error message if position exists, success otherwise
+     */
+    public OrderResult validateOrderPlacement(Instrument instrument) throws IOException {
+        List<OpenPosition> openPositionsList = getPositions();
+        String instrumentKey = instrument.getBase().getCurrencyCode();
+
+        OpenPosition existingPosition = openPositionsList.stream()
+                .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
+                        .equals(instrument.getBase().getCurrencyCode()))
+                .findFirst().orElse(null);
+
+        if (existingPosition != null) {
+            BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
+            BigDecimal positionSize = existingPosition.getSize();
+            String positionType = existingPosition.getType().name();
+            return new OrderResult(false,
+                    "ERROR: Cannot place new order for " + instrumentKey +
+                            ". An open position already exists. " +
+                            "Position type: " + positionType +
+                            ", Size: " + positionSize +
+                            ", Tracked quantity: " + (trackedQuantity != null ? trackedQuantity : "N/A") +
+                            ". Please wait for the existing position to be fully closed before opening a new one.");
+        }
+
+        return new OrderResult(true, "Validation passed");
+    }
+
+    /**
+     * Get current open position for an instrument
+     *
+     * @param instrument the trading instrument
+     * @return OpenPosition if exists, null otherwise
+     */
+    public OpenPosition getOpenPosition(Instrument instrument) throws IOException {
+        List<OpenPosition> openPositionsList = getPositions();
+        return openPositionsList.stream()
+                .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
+                        .equals(instrument.getBase().getCurrencyCode()))
+                .findFirst().orElse(null);
+    }
+
+    public OrderResult placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
         // checkAccount();
         List<OpenPosition> openPositionsList = getPositions();
-        
+
         // Check if there's already an open position for this instrument
         // If yes, wait for it to be fully closed before opening a new one
         String instrumentKey = instrument.getBase().getCurrencyCode();
@@ -184,7 +249,7 @@ public class KrakenFutureConfiguration {
                 .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
                         .equals(instrument.getBase().getCurrencyCode()))
                 .findFirst().orElse(null);
-        
+
         if (existingPosition != null) {
             // Position already exists for this asset - use the tracked quantity to close it
             BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
@@ -192,11 +257,19 @@ public class KrakenFutureConfiguration {
                 originalAmount = trackedQuantity;
                 System.out.println("Using tracked quantity " + originalAmount + " for existing position on " + instrumentKey);
             }
-            
-            // Skip placing new orders - we already have an open position for this asset
-            // Wait for the existing position to be fully closed before opening a new one
-            System.out.println("Position already exists for " + instrumentKey + ", waiting for it to be fully closed before opening new position");
-            return;
+
+            // Return error message instead of silently returning
+            BigDecimal positionSize = existingPosition.getSize();
+            String positionType = existingPosition.getType().name();
+            String errorMessage = "ERROR: Cannot place new order for " + instrumentKey +
+                    ". An open position already exists. " +
+                    "Position type: " + positionType +
+                    ", Size: " + positionSize +
+                    ", Tracked quantity: " + (trackedQuantity != null ? trackedQuantity : "N/A") +
+                    ". Please wait for the existing position to be fully closed before opening a new one.";
+
+            System.out.println(errorMessage);
+            return new OrderResult(false, errorMessage);
         } else {
             // No existing position - this is a new position, store the quantity
             positionQuantities.put(instrumentKey, originalAmount);
@@ -266,14 +339,15 @@ public class KrakenFutureConfiguration {
         } else {
             // do nothing
         }
+        return null;
     }
 
     private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount,
-            List<OpenPosition> openPositionsList,
-            String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue) throws IOException {
+                                               List<OpenPosition> openPositionsList,
+                                               String triggerOrderType, BigDecimal openPositionPrice, BigDecimal krakenSpotLastValue) throws IOException {
         if (openPositionsList.size() > 0) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
-                    .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny()
+                            .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny()
                     .orElse(null);
             if (openPosition != null) {
                 String type = openPosition.getType().name();
@@ -295,7 +369,7 @@ public class KrakenFutureConfiguration {
     }
 
     public String placeMarketOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
-            List<OpenPosition> openPositionsList)
+                                   List<OpenPosition> openPositionsList)
             throws IOException {
 
         String orderId = "";
@@ -323,21 +397,19 @@ public class KrakenFutureConfiguration {
     }
 
     /**
-     * 
      * @param instrument
      * @param originalAmount
      * @param bidType
      * @param price
      * @param openPositionsList
-     * @throws IOException
-     *                     if short position:
+     * @throws IOException if short position:
      *                     BID cannot be higher than the open position price
      *                     if LONG position:
      *                     ASK cannot be lesser than the open position price
      */
 
     public void placeLimitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
-            List<OpenPosition> openPositionsList)
+                                List<OpenPosition> openPositionsList)
             throws IOException {
 
         boolean shouldBePlaced = true;
@@ -365,11 +437,11 @@ public class KrakenFutureConfiguration {
     }
 
     private boolean isAllowedTrade(String bidType, List<OpenPosition> openPositionsList, boolean shouldBePlaced,
-            BigDecimal limitPrice, Instrument instrument) {
+                                   BigDecimal limitPrice, Instrument instrument) {
         BigDecimal openPositionPrice;
         if (openPositionsList.size() > 0) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
-                    .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny()
+                            .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny()
                     .orElse(null);
             if (openPosition != null) {
                 openPositionPrice = openPosition.getPrice();
@@ -391,7 +463,6 @@ public class KrakenFutureConfiguration {
     }
 
     /**
-     * 
      * @param instrument
      * @param originalAmount
      * @param bidType
@@ -401,12 +472,12 @@ public class KrakenFutureConfiguration {
      */
 
     public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
-            List<OpenPosition> openPositionsList)
+                               List<OpenPosition> openPositionsList)
             throws IOException {
         BigDecimal stopPrice;
         OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
                 .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny().orElse(null);
-        
+
         // Use the SAME quantity that was used to open the position
         String instrumentKey = instrument.getBase().getCurrencyCode();
         if (openPosition != null) {
@@ -420,7 +491,7 @@ public class KrakenFutureConfiguration {
                 originalAmount = openPosition.getSize();
             }
         }
-        
+
         if (bidType.equals("BID")) {
             if (openPositionsList.size() > 0) {
                 if (openPosition != null) {
@@ -462,7 +533,7 @@ public class KrakenFutureConfiguration {
     }
 
     public void placeTakeProfitOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
-            List<OpenPosition> openPositionsList)
+                                     List<OpenPosition> openPositionsList)
             throws IOException {
 
         System.out.println("Inside Profit Order");
@@ -470,7 +541,7 @@ public class KrakenFutureConfiguration {
         boolean shouldBePlaced = true;
 
         BigDecimal positionSize = BigDecimal.ZERO;
-        
+
         // Use the SAME quantity that was used to open the position
         String instrumentKey = instrument.getBase().getCurrencyCode();
         if (openPositionsList.size() > 0) {
@@ -526,8 +597,7 @@ public class KrakenFutureConfiguration {
             price = price.setScale(2, RoundingMode.DOWN);
         } else if (instrument.getBase().getCurrencyCode().equals("KSM")) {
             price = price.setScale(2, RoundingMode.DOWN);
-        }
-        else if (instrument.getBase().getCurrencyCode().equals("GMT")) {
+        } else if (instrument.getBase().getCurrencyCode().equals("GMT")) {
             price = price.setScale(4, RoundingMode.DOWN);
         }
         return price;
@@ -581,7 +651,7 @@ public class KrakenFutureConfiguration {
 
     public List<OpenPosition> getPositions() throws IOException {
         List<OpenPosition> openPositions = getExchange().getTradeService().getOpenPositions().getOpenPositions();
-        
+
         // Clean up position quantities for positions that no longer exist
         if (openPositions.isEmpty()) {
             positionQuantities.clear();
@@ -589,12 +659,12 @@ public class KrakenFutureConfiguration {
         } else {
             // Remove tracking for positions that have been closed
             positionQuantities.keySet().retainAll(
-                openPositions.stream()
-                    .map(p -> p.getInstrument().getBase().getCurrencyCode())
-                    .collect(java.util.stream.Collectors.toSet())
+                    openPositions.stream()
+                            .map(p -> p.getInstrument().getBase().getCurrencyCode())
+                            .collect(java.util.stream.Collectors.toSet())
             );
         }
-        
+
         for (OpenPosition openPosition : openPositions) {
             System.out.println(openPosition);
         }

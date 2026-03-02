@@ -168,6 +168,16 @@ public class ScheduledTradingService {
             Instrument instrument = new org.knowm.xchange.currency.CurrencyPair(asset, "USD");
             KrakenFuturesTicker futuresTicker = krakenConfiguration.getFuturesPriceChange(instrument);
             
+            // VALIDATION: Check if there's already an open position for this asset
+            // This prevents placing new orders when a position already exists
+            KrakenFutureConfiguration.OrderResult validationResult = krakenConfiguration.validateOrderPlacement(instrument);
+            if (!validationResult.isSuccess()) {
+                result = "POSITION_EXISTS: " + validationResult.getMessage();
+                logger.warn("Skipping trade for {}: {}", asset, validationResult.getMessage());
+                lastTradeResult.put(asset, result);
+                return;
+            }
+            
             // Execute trade with per-asset quantity (each asset has its own unique quantity setting)
             BigDecimal quantity = getAssetQuantity(asset);
             BigDecimal amount = adjustAmountPrecision(config, quantity);

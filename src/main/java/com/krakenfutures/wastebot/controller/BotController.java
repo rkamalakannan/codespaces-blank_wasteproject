@@ -65,14 +65,20 @@ public class BotController {
     @PostMapping("/execute/{asset}/{amount}")
     @Operation(summary = "Execute trade", description = "Execute a trade for the specified asset with the given amount")
     public String executeTrade(
-            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC") 
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC")
             @PathVariable String asset,
-            @Parameter(description = "Original amount to trade", example = "0.5") 
+            @Parameter(description = "Original amount to trade", example = "0.5")
             @PathVariable BigDecimal amount) throws IOException {
         Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
         
+        // First validate: check if there's already an open position for this asset
+        KrakenFutureConfiguration.OrderResult validationResult = krakenConfiguration.validateOrderPlacement(instrument);
+        if (!validationResult.isSuccess()) {
+            return validationResult.getMessage();
+        }
+        
         // Adjust amount precision based on asset
-        ScheduledTradingService.AssetConfig config = 
+        ScheduledTradingService.AssetConfig config =
             ScheduledTradingService.SUPPORTED_ASSETS.get(asset.toUpperCase());
         if (config != null) {
             amount = amount.setScale(config.getAmountPrecision(), BigDecimal.ROUND_DOWN);

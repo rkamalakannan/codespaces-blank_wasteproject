@@ -601,24 +601,6 @@ public class KrakenFutureConfiguration {
         return openPositions;
     }
 
-    /**
-     * Get the tracked quantity for a specific instrument
-     * @param instrumentKey the base currency code (e.g., "BTC")
-     * @return the quantity used to open the position, or null if not tracked
-     */
-    public BigDecimal getTrackedQuantity(String instrumentKey) {
-        return positionQuantities.get(instrumentKey);
-    }
-
-    /**
-     * Clear the tracked quantity for a specific instrument
-     * Call this when a position is fully closed
-     * @param instrumentKey the base currency code (e.g., "BTC")
-     */
-    public void clearTrackedQuantity(String instrumentKey) {
-        positionQuantities.remove(instrumentKey);
-    }
-
     public List<KrakenFuturesOpenPosition> getPositionsRaw() throws IOException {
 
         KrakenFuturesTradeServiceRaw tradeServiceRaw = (KrakenFuturesTradeServiceRaw) exchange

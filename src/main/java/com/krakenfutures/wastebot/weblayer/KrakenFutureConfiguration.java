@@ -28,6 +28,7 @@ import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndI
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -53,6 +54,14 @@ public class KrakenFutureConfiguration {
     BinanceFutureConfiguration binanceFutureConfiguration;
 
     private Exchange exchange;
+
+    // Configurable stop-loss percentage distance from entry price (default 1.0%)
+    @Value("${trading.stop-loss-percent:1.0}")
+    private double stopLossPercent;
+
+    // Configurable take-profit fallback percentage distance from entry price (default 1.0%)
+    @Value("${trading.take-profit-percent:1.0}")
+    private double takeProfitPercent;
 
     // Track the quantity used to open each position (key: instrument base currency)
     // This ensures we close positions with the exact same quantity used to open them
@@ -497,18 +506,27 @@ public class KrakenFutureConfiguration {
             }
         }
 
+        // Use open position entry price if available
+        if (!openPositionsList.isEmpty() && openPosition != null) {
+            price = openPosition.getPrice();
+            logger.info("[STOP_ORDER] {} - Using open position entry price: {}", instrumentKey, price);
+        }
+
+        // Stop-loss direction:
+        // BID stop (for SHORT positions): price RISES to stop → stop above entry
+        // ASK stop (for LONG positions): price FALLS to stop → stop below entry
+        // NOTE: bidType here is the ORDER TYPE to close the position, not the direction of the stop trigger.
+        // For a LONG position (opened with BID/buy), the stop-loss closes with ASK/sell → bidType="ASK"
+        // For a SHORT position (opened with ASK/sell), the stop-loss closes with BID/buy → bidType="BID"
+        BigDecimal stopOffsetFactor = BigDecimal.valueOf(stopLossPercent / 100.0);
         if (bidType.equals("BID")) {
-            if (!openPositionsList.isEmpty() && openPosition != null) {
-                price = openPosition.getPrice();
-                logger.info("[STOP_ORDER] {} - BID stop: using open position price: {}", instrumentKey, price);
-            }
-            stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+            // BID stop = closing a SHORT position → stop triggers when price rises above entry
+            stopPrice = price.plus().add(price.multiply(stopOffsetFactor));
+            logger.info("[STOP_ORDER] {} - BID stop (SHORT position): stopPrice={}+{}%={}", instrumentKey, price, stopLossPercent, stopPrice);
         } else {
-            if (!openPositionsList.isEmpty() && openPosition != null) {
-                price = openPosition.getPrice();
-                logger.info("[STOP_ORDER] {} - ASK stop: using open position price: {}", instrumentKey, price);
-            }
-            stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+            // ASK stop = closing a LONG position → stop triggers when price falls below entry
+            stopPrice = price.subtract(price.multiply(stopOffsetFactor));
+            logger.info("[STOP_ORDER] {} - ASK stop (LONG position): stopPrice={}-{}%={}", instrumentKey, price, stopLossPercent, stopPrice);
         }
 
         stopPrice = priceDecimalPrecision(instrument, stopPrice);
@@ -856,10 +874,15 @@ public class KrakenFutureConfiguration {
             logger.info("[PROTECT] Checking position: instrument={}, type={}, entryPrice={}, size={}, orderSize={}",
                     instrumentKey, position.getType(), entryPrice, positionSize, orderSize);
 
-            // Determine order types based on position direction
-            // LONG: stop-loss = BID (sell), take-profit = ASK (sell)
-            // SHORT: stop-loss = ASK (buy), take-profit = BID (buy)
-            String stopLossOrderType = isLong ? "BID" : "ASK";
+            // Determine order types based on position direction.
+            // In Kraken Futures, to CLOSE a position you use the OPPOSITE order type:
+            // LONG position (opened with BUY/BID): close with SELL/ASK
+            //   - Stop-loss: ASK order below entry (triggers when price falls)
+            //   - Take-profit: ASK order above entry (triggers when price rises)
+            // SHORT position (opened with SELL/ASK): close with BUY/BID
+            //   - Stop-loss: BID order above entry (triggers when price rises)
+            //   - Take-profit: BID order below entry (triggers when price falls)
+            String stopLossOrderType = isLong ? "ASK" : "BID";
             String takeProfitOrderType = isLong ? "ASK" : "BID";
 
             // Check if stop-loss exists for this instrument (cast to StopOrder to access intention)
@@ -882,14 +905,14 @@ public class KrakenFutureConfiguration {
             if (!hasStopLoss) {
                 logger.warn("[PROTECT] {} - MISSING stop-loss! Placing stop-loss order now.", instrumentKey);
                 try {
-                    // Stop-loss: 0.1% beyond entry price in the loss direction
+                    BigDecimal stopOffsetFactor = BigDecimal.valueOf(stopLossPercent / 100.0);
                     BigDecimal stopLossPrice;
                     if (isLong) {
-                        // LONG: stop-loss below entry price (sell if price drops)
-                        stopLossPrice = entryPrice.subtract(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                        // LONG: stop-loss BELOW entry price (ASK order triggers when price falls)
+                        stopLossPrice = entryPrice.subtract(entryPrice.multiply(stopOffsetFactor));
                     } else {
-                        // SHORT: stop-loss above entry price (buy if price rises)
-                        stopLossPrice = entryPrice.plus().add(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                        // SHORT: stop-loss ABOVE entry price (BID order triggers when price rises)
+                        stopLossPrice = entryPrice.plus().add(entryPrice.multiply(stopOffsetFactor));
                     }
                     stopLossPrice = priceDecimalPrecision(instrument, stopLossPrice);
 
@@ -923,12 +946,15 @@ public class KrakenFutureConfiguration {
                         takeProfitPrice = getProfitLimitPrice(instrument);
                         logger.info("[PROTECT] {} - Using predicted profit limit price: {}", instrumentKey, takeProfitPrice);
                     } catch (Exception e) {
-                        // Fallback: 0.1% beyond entry price in the profit direction
-                        logger.warn("[PROTECT] {} - Could not get predicted profit price ({}), using fallback +/-0.1%", instrumentKey, e.getMessage());
+                        // Fallback: configurable % beyond entry price in the profit direction
+                        BigDecimal tpOffsetFactor = BigDecimal.valueOf(takeProfitPercent / 100.0);
+                        logger.warn("[PROTECT] {} - Could not get predicted profit price ({}), using fallback +/-{}%", instrumentKey, e.getMessage(), takeProfitPercent);
                         if (isLong) {
-                            takeProfitPrice = entryPrice.plus().add(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                            // LONG: take-profit ABOVE entry price
+                            takeProfitPrice = entryPrice.plus().add(entryPrice.multiply(tpOffsetFactor));
                         } else {
-                            takeProfitPrice = entryPrice.subtract(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                            // SHORT: take-profit BELOW entry price
+                            takeProfitPrice = entryPrice.subtract(entryPrice.multiply(tpOffsetFactor));
                         }
                     }
                     takeProfitPrice = priceDecimalPrecision(instrument, takeProfitPrice);

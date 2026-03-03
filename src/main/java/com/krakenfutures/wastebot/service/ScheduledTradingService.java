@@ -58,6 +58,10 @@ public class ScheduledTradingService {
     @Value("${trading.max-positions:3}")
     private int maxPositions;
 
+    // Open order expiry: unfilled orders older than this are automatically cancelled (0 = disabled)
+    @Value("${trading.order.expiry-ms:300000}")
+    private long orderExpiryMs;
+
     // Track scheduler state
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
@@ -100,7 +104,41 @@ public class ScheduledTradingService {
         logger.info("Default trade amount: {}", defaultAmount);
         logger.info("Max positions allowed: {}", maxPositions);
         logger.info("Min trade interval: {}ms", MIN_TRADE_INTERVAL_MS);
+        logger.info("Order expiry: {}ms ({} seconds) - {}",
+                orderExpiryMs, orderExpiryMs / 1000,
+                orderExpiryMs <= 0 ? "DISABLED" : "ENABLED");
         logger.info("Active assets: {}", activeAssets);
+    }
+
+    /**
+     * Scheduled task to cancel unfilled open orders that have exceeded the configured expiry period.
+     * Runs at the same interval as the main trading cycle.
+     * Controlled by {@code trading.order.expiry-ms} property (0 = disabled).
+     */
+    @Scheduled(fixedDelayString = "${trading.scheduler.interval-ms:30000}")
+    public void cancelExpiredOrders() {
+        if (!schedulerEnabled || isPaused.get()) {
+            logger.debug("[EXPIRY_TASK] Scheduler paused or disabled, skipping expiry check.");
+            return;
+        }
+
+        if (orderExpiryMs <= 0) {
+            logger.debug("[EXPIRY_TASK] Order expiry disabled (trading.order.expiry-ms={}). Skipping.", orderExpiryMs);
+            return;
+        }
+
+        logger.info("[EXPIRY_TASK] Running open order expiry check (expiry={}ms / {}s)...",
+                orderExpiryMs, orderExpiryMs / 1000);
+        try {
+            int cancelled = krakenConfiguration.cancelExpiredOpenOrders(orderExpiryMs);
+            if (cancelled > 0) {
+                logger.info("[EXPIRY_TASK] Cancelled {} expired unfilled order(s).", cancelled);
+            } else {
+                logger.info("[EXPIRY_TASK] No expired orders found.");
+            }
+        } catch (Exception e) {
+            logger.error("[EXPIRY_TASK] Error during open order expiry check: {}", e.getMessage(), e);
+        }
     }
 
     /**

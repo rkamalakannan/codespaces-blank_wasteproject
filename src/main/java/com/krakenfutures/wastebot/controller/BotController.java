@@ -56,6 +56,10 @@ public class BotController {
     @Value("${trading.default-amount:0.01}")
     private BigDecimal defaultAmount;
 
+    // Open order expiry period (from env/properties)
+    @Value("${trading.order.expiry-ms:300000}")
+    private long orderExpiryMs;
+
     // Track if scheduler is available
     private boolean schedulerAvailable = false;
 
@@ -142,11 +146,31 @@ public class BotController {
     @PostMapping("/cancel-orders/{asset}")
     @Operation(summary = "Cancel orders", description = "Cancel the first open order for the specified asset")
     public String cancelOrders(
-            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC") 
+            @Parameter(description = "Asset symbol (e.g., BTC, ETH)", example = "BTC")
             @PathVariable String asset) throws IOException {
         Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
         krakenConfiguration.cancelTopFirstOrder(instrument);
         return "Orders cancelled for " + asset;
+    }
+
+    @PostMapping("/cancel-expired-orders")
+    @Operation(summary = "Cancel expired open orders",
+            description = "Manually trigger cancellation of all unfilled open orders older than the configured expiry period (trading.order.expiry-ms)")
+    public Map<String, Object> cancelExpiredOrders(
+            @Parameter(description = "Override expiry period in milliseconds (optional, uses trading.order.expiry-ms if not provided)")
+            @RequestParam(required = false) Long expiryMs) throws IOException {
+        long effectiveExpiry = (expiryMs != null) ? expiryMs : orderExpiryMs;
+        logger.info("[MANUAL_EXPIRY] Manually triggering expired order cancellation with expiryMs={}", effectiveExpiry);
+        int cancelled = krakenConfiguration.cancelExpiredOpenOrders(effectiveExpiry);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("cancelledCount", cancelled);
+        result.put("expiryMs", effectiveExpiry);
+        result.put("expirySeconds", effectiveExpiry / 1000);
+        result.put("message", cancelled > 0
+                ? "Cancelled " + cancelled + " expired unfilled order(s)"
+                : "No expired orders found");
+        logger.info("[MANUAL_EXPIRY] Result: {}", result);
+        return result;
     }
 
     // ==================== Scheduler Control Endpoints ====================

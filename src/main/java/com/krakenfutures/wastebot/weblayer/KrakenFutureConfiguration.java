@@ -702,4 +702,102 @@ public class KrakenFutureConfiguration {
         return openPositions;
     }
 
+    /**
+     * Cancel all unfilled open orders (both regular limit orders and hidden/trigger orders)
+     * that are older than the specified expiry duration.
+     *
+     * This method is called by the scheduler to automatically clean up stale orders
+     * that were never filled. The expiry period is configured via
+     * {@code trading.order.expiry-ms} in application.properties or environment variables.
+     *
+     * @param orderExpiryMs maximum age in milliseconds for an open order before it is cancelled.
+     *                      Pass 0 or negative to skip cancellation.
+     * @return number of orders cancelled
+     */
+    public int cancelExpiredOpenOrders(long orderExpiryMs) throws IOException {
+        if (orderExpiryMs <= 0) {
+            logger.debug("[EXPIRY] Order expiry disabled (orderExpiryMs={}). Skipping.", orderExpiryMs);
+            return 0;
+        }
+
+        long now = System.currentTimeMillis();
+        long cutoffTime = now - orderExpiryMs;
+        int cancelledCount = 0;
+
+        logger.info("[EXPIRY] Checking for unfilled open orders older than {}ms ({} seconds).",
+                orderExpiryMs, orderExpiryMs / 1000);
+
+        OpenOrders openOrders = getExchange().getTradeService().getOpenOrders();
+
+        // Cancel expired regular limit/market orders
+        List<LimitOrder> limitOrders = openOrders.getOpenOrders();
+        logger.info("[EXPIRY] Found {} regular open order(s) to check.", limitOrders.size());
+
+        for (LimitOrder order : limitOrders) {
+            java.util.Date orderTimestamp = order.getTimestamp();
+            if (orderTimestamp == null) {
+                logger.warn("[EXPIRY] Regular order {} has no timestamp - skipping expiry check.", order.getId());
+                continue;
+            }
+            long orderAgeMs = now - orderTimestamp.getTime();
+            if (orderTimestamp.getTime() < cutoffTime) {
+                logger.info("[EXPIRY] Cancelling expired regular order: id={}, instrument={}, type={}, price={}, age={}ms ({}s)",
+                        order.getId(),
+                        order.getInstrument() != null ? order.getInstrument().toString() : "unknown",
+                        order.getType(),
+                        order.getLimitPrice(),
+                        orderAgeMs,
+                        orderAgeMs / 1000);
+                try {
+                    getExchange().getTradeService().cancelOrder(
+                            new DefaultCancelOrderByInstrumentAndIdParams(order.getInstrument(), order.getId()));
+                    cancelledCount++;
+                    logger.info("[EXPIRY] Successfully cancelled regular order: {}", order.getId());
+                } catch (Exception e) {
+                    logger.error("[EXPIRY] Failed to cancel regular order {}: {}", order.getId(), e.getMessage(), e);
+                }
+            } else {
+                logger.debug("[EXPIRY] Regular order {} is within expiry window (age={}ms, limit={}ms). Keeping.",
+                        order.getId(), orderAgeMs, orderExpiryMs);
+            }
+        }
+
+        // Cancel expired hidden/trigger orders (stop-loss, take-profit)
+        List<StopOrder> hiddenOrders = openOrders.getHiddenOrders();
+        logger.info("[EXPIRY] Found {} hidden/trigger order(s) to check.", hiddenOrders.size());
+
+        for (StopOrder order : hiddenOrders) {
+            java.util.Date orderTimestamp = order.getTimestamp();
+            if (orderTimestamp == null) {
+                logger.warn("[EXPIRY] Hidden order {} has no timestamp - skipping expiry check.", order.getId());
+                continue;
+            }
+            long orderAgeMs = now - orderTimestamp.getTime();
+            if (orderTimestamp.getTime() < cutoffTime) {
+                logger.info("[EXPIRY] Cancelling expired hidden/trigger order: id={}, instrument={}, type={}, stopPrice={}, age={}ms ({}s)",
+                        order.getId(),
+                        order.getInstrument() != null ? order.getInstrument().toString() : "unknown",
+                        order.getType(),
+                        order.getStopPrice(),
+                        orderAgeMs,
+                        orderAgeMs / 1000);
+                try {
+                    getExchange().getTradeService().cancelOrder(
+                            new DefaultCancelOrderByInstrumentAndIdParams(order.getInstrument(), order.getId()));
+                    cancelledCount++;
+                    logger.info("[EXPIRY] Successfully cancelled hidden/trigger order: {}", order.getId());
+                } catch (Exception e) {
+                    logger.error("[EXPIRY] Failed to cancel hidden/trigger order {}: {}", order.getId(), e.getMessage(), e);
+                }
+            } else {
+                logger.debug("[EXPIRY] Hidden order {} is within expiry window (age={}ms, limit={}ms). Keeping.",
+                        order.getId(), orderAgeMs, orderExpiryMs);
+            }
+        }
+
+        logger.info("[EXPIRY] Expiry check complete. Cancelled {}/{} regular + {}/{} hidden orders.",
+                cancelledCount, limitOrders.size(), cancelledCount, hiddenOrders.size());
+        return cancelledCount;
+    }
+
 }

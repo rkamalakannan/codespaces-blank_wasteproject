@@ -98,6 +98,8 @@ public class ScheduledTradingService {
         logger.info("Polling interval: {}ms ({} seconds)", pollingIntervalMs, pollingIntervalMs / 1000);
         logger.info("Scheduler enabled: {}", schedulerEnabled);
         logger.info("Default trade amount: {}", defaultAmount);
+        logger.info("Max positions allowed: {}", maxPositions);
+        logger.info("Min trade interval: {}ms", MIN_TRADE_INTERVAL_MS);
         logger.info("Active assets: {}", activeAssets);
     }
 
@@ -117,26 +119,28 @@ public class ScheduledTradingService {
             return;
         }
 
-        if (!canTrade()) {
-            logger.info("Max positions reached ({}) or other constraints prevent trading", maxPositions);
-            return;
-        }
-
         isRunning.set(true);
         long startTime = System.currentTimeMillis();
 
         try {
             logger.info("=== Starting Scheduled Trading Cycle ===");
-            
+
+            // Check global position cap before iterating assets
+            if (!canTrade()) {
+                logger.info("[CYCLE] Max positions reached ({}). No new orders will be placed this cycle.", maxPositions);
+                return;
+            }
+
             for (String asset : activeAssets) {
+                // Per-asset rate-limit check (time-based cooldown)
                 if (!canTradeAsset(asset)) {
                     continue;
                 }
-                
+
                 try {
                     processAsset(asset);
                 } catch (Exception e) {
-                    logger.error("Error processing asset {}: {}", asset, e.getMessage());
+                    logger.error("[CYCLE] Error processing asset {}: {}", asset, e.getMessage(), e);
                     lastTradeResult.put(asset, "ERROR: " + e.getMessage());
                 }
             }
@@ -150,48 +154,67 @@ public class ScheduledTradingService {
     }
 
     /**
-     * Process a single asset for trading opportunities
+     * Process a single asset for trading opportunities.
+     * Guards are applied in this order:
+     * 1. Asset support check
+     * 2. Open position check via validateOrderPlacement() (API call)
+     * 3. placeOrder() performs a second open position check as a safety net
      */
     private void processAsset(String asset) throws IOException {
         String result;
-        
+
         try {
             // Check if asset is supported
             AssetConfig config = SUPPORTED_ASSETS.get(asset.toUpperCase());
             if (config == null) {
+                logger.warn("[PROCESS] Asset {} is not supported. Skipping.", asset);
                 result = "UNSUPPORTED";
                 lastTradeResult.put(asset, result);
                 return;
             }
 
-            // Get price data
             Instrument instrument = new org.knowm.xchange.currency.CurrencyPair(asset, "USD");
-            KrakenFuturesTicker futuresTicker = krakenConfiguration.getFuturesPriceChange(instrument);
-            
-            // VALIDATION: Check if there's already an open position for this asset
-            // This prevents placing new orders when a position already exists
+
+            // GUARD 1: Check if there's already an open position for this asset BEFORE fetching price data.
+            // This is the primary guard to prevent placing new orders when a position already exists.
+            logger.info("[PROCESS] {} - Checking for existing open position before order placement...", asset);
             KrakenFutureConfiguration.OrderResult validationResult = krakenConfiguration.validateOrderPlacement(instrument);
             if (!validationResult.isSuccess()) {
                 result = "POSITION_EXISTS: " + validationResult.getMessage();
-                logger.warn("Skipping trade for {}: {}", asset, validationResult.getMessage());
+                logger.warn("[PROCESS] {} - BLOCKED by open position check. Reason: {}", asset, validationResult.getMessage());
                 lastTradeResult.put(asset, result);
                 return;
             }
-            
+
+            logger.info("[PROCESS] {} - No open position found. Proceeding to fetch price data and place order.", asset);
+
+            // Get price data (only after confirming no open position)
+            KrakenFuturesTicker futuresTicker = krakenConfiguration.getFuturesPriceChange(instrument);
+            logger.info("[PROCESS] {} - Futures ticker fetched. Mark price: {}", asset,
+                    futuresTicker != null ? futuresTicker.getMarkPrice() : "null");
+
             // Execute trade with per-asset quantity (each asset has its own unique quantity setting)
             BigDecimal quantity = getAssetQuantity(asset);
             BigDecimal amount = adjustAmountPrecision(config, quantity);
-            krakenConfiguration.placeOrder(instrument, amount);
-            
-            lastTradeTime.put(asset, System.currentTimeMillis());
-            result = "SUCCESS";
-            logger.info("Trade executed for {} with amount {}", asset, amount);
-            
+            logger.info("[PROCESS] {} - Placing order with amount: {}", asset, amount);
+
+            // GUARD 2: placeOrder() itself also re-checks open positions as a safety net
+            KrakenFutureConfiguration.OrderResult orderResult = krakenConfiguration.placeOrder(instrument, amount);
+
+            if (orderResult != null && !orderResult.isSuccess()) {
+                result = "ORDER_BLOCKED: " + orderResult.getMessage();
+                logger.warn("[PROCESS] {} - Order was blocked inside placeOrder(). Reason: {}", asset, orderResult.getMessage());
+            } else {
+                lastTradeTime.put(asset, System.currentTimeMillis());
+                result = "SUCCESS";
+                logger.info("[PROCESS] {} - Trade executed successfully with amount: {}", asset, amount);
+            }
+
         } catch (Exception e) {
             result = "FAILED: " + e.getMessage();
-            logger.warn("Trade failed for {}: {}", asset, e.getMessage());
+            logger.error("[PROCESS] {} - Trade failed with exception: {}", asset, e.getMessage(), e);
         }
-        
+
         lastTradeResult.put(asset, result);
     }
 
@@ -203,34 +226,45 @@ public class ScheduledTradingService {
     }
 
     /**
-     * Check if we can open new positions
+     * Check if we can open new positions globally (total position cap).
+     * NOTE: This checks the TOTAL number of open positions across all assets.
+     * Per-asset position checks are done in processAsset() via validateOrderPlacement().
      */
     private boolean canTrade() {
         try {
             int currentPositions = krakenConfiguration.getPositions().size();
-            return currentPositions < maxPositions;
+            boolean allowed = currentPositions < maxPositions;
+            logger.info("[CAN_TRADE] Current open positions: {}, Max allowed: {}, Trading allowed: {}",
+                    currentPositions, maxPositions, allowed);
+            return allowed;
         } catch (IOException e) {
-            logger.error("Error checking positions: {}", e.getMessage());
+            logger.error("[CAN_TRADE] Error fetching positions from exchange: {}. Blocking trade as safety measure.", e.getMessage(), e);
+            // Fail safe: if we can't check positions, block trading to avoid over-exposure
             return false;
         }
     }
 
     /**
-     * Check if we can trade a specific asset (rate limiting)
+     * Check if we can trade a specific asset based on time-based rate limiting.
+     * NOTE: This does NOT check for open positions - that is handled by validateOrderPlacement()
+     * in processAsset(). This method only enforces the minimum time between trades.
      */
     private boolean canTradeAsset(String asset) {
         Long lastTrade = lastTradeTime.get(asset);
         if (lastTrade == null) {
+            logger.debug("[CAN_TRADE_ASSET] {} - No previous trade recorded. Asset is eligible.", asset);
             return true;
         }
-        
+
         long timeSinceLastTrade = System.currentTimeMillis() - lastTrade;
         if (timeSinceLastTrade < MIN_TRADE_INTERVAL_MS) {
-            logger.debug("Asset {} in cooldown period ({}ms remaining)", 
-                asset, MIN_TRADE_INTERVAL_MS - timeSinceLastTrade);
+            long remainingMs = MIN_TRADE_INTERVAL_MS - timeSinceLastTrade;
+            logger.info("[CAN_TRADE_ASSET] {} - In cooldown period. {}ms remaining before next trade allowed.",
+                    asset, remainingMs);
             return false;
         }
-        
+
+        logger.debug("[CAN_TRADE_ASSET] {} - Cooldown period elapsed ({}ms since last trade). Asset is eligible.", asset, timeSinceLastTrade);
         return true;
     }
 

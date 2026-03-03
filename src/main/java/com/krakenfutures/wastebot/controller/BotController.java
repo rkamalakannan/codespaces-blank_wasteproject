@@ -11,6 +11,8 @@ import org.knowm.xchange.dto.account.OpenPosition;
 import org.knowm.xchange.instrument.Instrument;
 import org.knowm.xchange.kraken.dto.marketdata.KrakenTicker;
 import org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,6 +37,8 @@ import jakarta.annotation.PostConstruct;
 @RequestMapping("/api/v1")
 @Tag(name = "Trading Bot", description = "API for executing trades and managing positions")
 public class BotController {
+
+    private static final Logger logger = LoggerFactory.getLogger(BotController.class);
 
     @Autowired
     KrakenFutureConfiguration krakenConfiguration;
@@ -69,23 +73,37 @@ public class BotController {
             @PathVariable String asset,
             @Parameter(description = "Original amount to trade", example = "0.5")
             @PathVariable BigDecimal amount) throws IOException {
-        Instrument instrument = new CurrencyPair(asset.toUpperCase(), "USD");
-        
-        // First validate: check if there's already an open position for this asset
+        String assetUpper = asset.toUpperCase();
+        Instrument instrument = new CurrencyPair(assetUpper, "USD");
+
+        logger.info("[MANUAL_TRADE] Received manual trade request for asset={}, amount={}", assetUpper, amount);
+
+        // GUARD: Check if there's already an open position for this asset before placing any order
+        logger.info("[MANUAL_TRADE] {} - Validating: checking for existing open position...", assetUpper);
         KrakenFutureConfiguration.OrderResult validationResult = krakenConfiguration.validateOrderPlacement(instrument);
         if (!validationResult.isSuccess()) {
+            logger.warn("[MANUAL_TRADE] {} - BLOCKED by open position check. Reason: {}", assetUpper, validationResult.getMessage());
             return validationResult.getMessage();
         }
-        
+
+        logger.info("[MANUAL_TRADE] {} - Validation passed. No open position found. Proceeding with order.", assetUpper);
+
         // Adjust amount precision based on asset
         ScheduledTradingService.AssetConfig config =
-            ScheduledTradingService.SUPPORTED_ASSETS.get(asset.toUpperCase());
+            ScheduledTradingService.SUPPORTED_ASSETS.get(assetUpper);
         if (config != null) {
             amount = amount.setScale(config.getAmountPrecision(), BigDecimal.ROUND_DOWN);
+            logger.info("[MANUAL_TRADE] {} - Amount adjusted to precision {}: {}", assetUpper, config.getAmountPrecision(), amount);
         }
-        
-        krakenConfiguration.placeOrder(instrument, amount);
-        return "Trade executed for " + asset + " with amount " + amount;
+
+        KrakenFutureConfiguration.OrderResult orderResult = krakenConfiguration.placeOrder(instrument, amount);
+        if (orderResult != null && !orderResult.isSuccess()) {
+            logger.warn("[MANUAL_TRADE] {} - Order blocked inside placeOrder(). Reason: {}", assetUpper, orderResult.getMessage());
+            return "Order blocked: " + orderResult.getMessage();
+        }
+
+        logger.info("[MANUAL_TRADE] {} - Trade executed successfully with amount: {}", assetUpper, amount);
+        return "Trade executed for " + assetUpper + " with amount " + amount;
     }
 
     @GetMapping("/positions")

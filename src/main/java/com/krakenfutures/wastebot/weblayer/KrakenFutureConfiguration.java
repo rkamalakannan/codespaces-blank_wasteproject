@@ -25,6 +25,8 @@ import org.knowm.xchange.krakenfutures.dto.trade.KrakenFuturesOrderFlags;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesMarketDataServiceRaw;
 import org.knowm.xchange.krakenfutures.service.KrakenFuturesTradeServiceRaw;
 import org.knowm.xchange.service.trade.params.DefaultCancelOrderByInstrumentAndIdParams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -41,6 +43,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Component
 public class KrakenFutureConfiguration {
+
+    private static final Logger logger = LoggerFactory.getLogger(KrakenFutureConfiguration.class);
 
     @Autowired
     KrakenSpotConfiguration krakenSpotConfiguration;
@@ -101,30 +105,6 @@ public class KrakenFutureConfiguration {
         return marketDataService.getKrakenFuturesTicker(instrument);
     }
 
-    // public void placeOrder(Instrument instrument, BigDecimal originalAmount)
-    // throws IOException {
-    // System.out
-    // .println("future" +
-    // cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getChange());
-    // System.out.println("spot" +
-    // cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange());
-    // System.out.println(
-    // "future price last" +
-    // cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast());
-    // System.out.println(
-    // "spot price last " +
-    // cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getLast());
-    // BigDecimal priceDifference =
-    // cryptoWatchConfiguration.getSpotPriceChange(instrument).getPrice().getChange()
-    // .getAbsolute().subtract(cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice()
-    // .getChange().getAbsolute());
-    // BigDecimal predictedPrice =
-    // cryptoWatchConfiguration.getFuturesPriceChange(instrument).getPrice().getLast()
-    // .plus().add(priceDifference);
-    // System.out.println("predictedfuture" + predictedPrice);
-    // System.out.println("pricedfference" + priceDifference);
-    // }
-
     public BigDecimal getProfitLimitPrice(Instrument instrument) throws IOException {
 
         BigDecimal predictedPrice;
@@ -148,17 +128,12 @@ public class KrakenFutureConfiguration {
         BigDecimal priceDifference;
         priceDifference = spotLast.subtract(futuresLast);
 
-        System.out
-                .println("future" + futureBigDecimalPercentage);
-        System.out.println("spot" + spotBigDecimalPercentage);
+        logger.info("[PROFIT_LIMIT] futures%={}, spot%={}", futureBigDecimalPercentage, spotBigDecimalPercentage);
 
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
 
-        System.out.println(
-                "future price last" + krakenFutureLastValue);
-        System.out.println(
-                "spot price last " + spotLast);
+        logger.info("[PROFIT_LIMIT] futures mark price={}, spot last={}", krakenFutureLastValue, spotLast);
 
         if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
             if (priceDifference.compareTo(BigDecimal.ZERO) > 0)
@@ -167,8 +142,7 @@ public class KrakenFutureConfiguration {
         } else {
             predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
         }
-        System.out.println("predictedfuture" + predictedPrice);
-        System.out.println("pricedfference" + priceDifference);
+        logger.info("[PROFIT_LIMIT] predictedPrice={}, priceDifference={}", predictedPrice, priceDifference);
         return predictedPrice;
     }
 
@@ -194,33 +168,47 @@ public class KrakenFutureConfiguration {
     }
 
     /**
-     * Check if an open position exists for the given instrument
+     * Check if an open position exists for the given instrument.
+     * This is the PRIMARY GUARD that must be called before any order placement.
      *
      * @param instrument the trading instrument
      * @return OrderResult with error message if position exists, success otherwise
      */
     public OrderResult validateOrderPlacement(Instrument instrument) throws IOException {
-        List<OpenPosition> openPositionsList = getPositions();
         String instrumentKey = instrument.getBase().getCurrencyCode();
+        logger.info("[VALIDATE] Checking open positions for instrument: {}", instrumentKey);
+
+        List<OpenPosition> openPositionsList = getPositions();
+        logger.info("[VALIDATE] Total open positions found: {}", openPositionsList.size());
+
+        if (!openPositionsList.isEmpty()) {
+            openPositionsList.forEach(p -> logger.info("[VALIDATE] Open position: instrument={}, type={}, size={}, price={}",
+                    p.getInstrument().getBase().getCurrencyCode(),
+                    p.getType(),
+                    p.getSize(),
+                    p.getPrice()));
+        }
 
         OpenPosition existingPosition = openPositionsList.stream()
                 .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
-                        .equals(instrument.getBase().getCurrencyCode()))
+                        .equals(instrumentKey))
                 .findFirst().orElse(null);
 
         if (existingPosition != null) {
             BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
             BigDecimal positionSize = existingPosition.getSize();
             String positionType = existingPosition.getType().name();
-            return new OrderResult(false,
-                    "ERROR: Cannot place new order for " + instrumentKey +
-                            ". An open position already exists. " +
-                            "Position type: " + positionType +
-                            ", Size: " + positionSize +
-                            ", Tracked quantity: " + (trackedQuantity != null ? trackedQuantity : "N/A") +
-                            ". Please wait for the existing position to be fully closed before opening a new one.");
+            String errorMsg = "BLOCKED: Cannot place new order for " + instrumentKey +
+                    ". An open position already exists. " +
+                    "Position type: " + positionType +
+                    ", Size: " + positionSize +
+                    ", Tracked quantity: " + (trackedQuantity != null ? trackedQuantity : "N/A") +
+                    ". Please wait for the existing position to be fully closed before opening a new one.";
+            logger.warn("[VALIDATE] {}", errorMsg);
+            return new OrderResult(false, errorMsg);
         }
 
+        logger.info("[VALIDATE] No open position found for {}. Validation passed - order placement allowed.", instrumentKey);
         return new OrderResult(true, "Validation passed");
     }
 
@@ -239,81 +227,84 @@ public class KrakenFutureConfiguration {
     }
 
     public OrderResult placeOrder(Instrument instrument, BigDecimal originalAmount) throws IOException {
-        // checkAccount();
-        List<OpenPosition> openPositionsList = getPositions();
-
-        // Check if there's already an open position for this instrument
-        // If yes, wait for it to be fully closed before opening a new one
         String instrumentKey = instrument.getBase().getCurrencyCode();
+        logger.info("[PLACE_ORDER] Attempting to place order for instrument: {}, amount: {}", instrumentKey, originalAmount);
+
+        // CRITICAL GUARD: Re-check open positions immediately before placing any order.
+        // This is a second layer of protection in addition to validateOrderPlacement()
+        // called in ScheduledTradingService.processAsset().
+        List<OpenPosition> openPositionsList = getPositions();
+        logger.info("[PLACE_ORDER] Open positions at time of order placement for {}: {} total positions",
+                instrumentKey, openPositionsList.size());
+
         OpenPosition existingPosition = openPositionsList.stream()
                 .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
-                        .equals(instrument.getBase().getCurrencyCode()))
+                        .equals(instrumentKey))
                 .findFirst().orElse(null);
 
         if (existingPosition != null) {
-            // Position already exists for this asset - use the tracked quantity to close it
+            // Position already exists for this asset - BLOCK new order placement
             BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
-            if (trackedQuantity != null) {
-                originalAmount = trackedQuantity;
-                System.out.println("Using tracked quantity " + originalAmount + " for existing position on " + instrumentKey);
-            }
-
-            // Return error message instead of silently returning
             BigDecimal positionSize = existingPosition.getSize();
             String positionType = existingPosition.getType().name();
-            String errorMessage = "ERROR: Cannot place new order for " + instrumentKey +
+            String errorMessage = "BLOCKED: Cannot place new order for " + instrumentKey +
                     ". An open position already exists. " +
                     "Position type: " + positionType +
                     ", Size: " + positionSize +
                     ", Tracked quantity: " + (trackedQuantity != null ? trackedQuantity : "N/A") +
                     ". Please wait for the existing position to be fully closed before opening a new one.";
 
-            System.out.println(errorMessage);
+            logger.warn("[PLACE_ORDER] {}", errorMessage);
             return new OrderResult(false, errorMessage);
-        } else {
-            // No existing position - this is a new position, store the quantity
-            positionQuantities.put(instrumentKey, originalAmount);
-            System.out.println("Stored opening quantity " + originalAmount + " for " + instrumentKey);
         }
 
-        String triggerOrderType = "";
+        // No existing position - this is a new position, store the quantity for tracking
+        positionQuantities.put(instrumentKey, originalAmount);
+        logger.info("[PLACE_ORDER] No existing position for {}. Stored opening quantity: {}", instrumentKey, originalAmount);
 
+        String triggerOrderType = "";
         BigDecimal openPositionPrice = BigDecimal.ZERO;
 
-        if (openPositionsList.size() > 0) {
+        // openPositionsList is empty here (we verified no existing position above),
+        // so this block is for future reference if logic changes
+        if (!openPositionsList.isEmpty()) {
             OpenPosition openPosition = openPositionsList.stream()
                     .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
-                            .contains(instrument.getBase().getCurrencyCode()) == true)
+                            .contains(instrumentKey))
                     .findFirst().orElse(null);
             if (openPosition != null) {
                 openPositionPrice = openPosition.getPrice();
-                if (openPosition.getType()
-                        .equals(OpenPosition.Type.LONG)) {
+                if (openPosition.getType().equals(OpenPosition.Type.LONG)) {
                     triggerOrderType = "ASK";
                 } else {
                     triggerOrderType = "BID";
                 }
+                logger.info("[PLACE_ORDER] Existing position found (unexpected): type={}, price={}", triggerOrderType, openPositionPrice);
             } else {
                 openPositionPrice = originalAmount;
             }
         }
+
         checkOpenOrdersandCancelFirst(instrument);
         KrakenFuturesTicker krakenFutureTicker = getTickers(instrument);
         KrakenTicker krakenSpotTicker = krakenSpotConfiguration.getKrakenSpotTicker(instrument);
         BigDecimal krakenFutureLastValue = krakenFutureTicker.getMarkPrice();
         BigDecimal krakenSpotLastValue = krakenSpotTicker.getAsk().getPrice();
 
-        System.out.println("krakenFutureLastValue" + krakenFutureLastValue.toString());
-        System.out.println("krakenSpotLastValue" + krakenSpotLastValue.toString());
+        logger.info("[PLACE_ORDER] {} - Futures mark price: {}, Spot ask price: {}",
+                instrumentKey, krakenFutureLastValue, krakenSpotLastValue);
 
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
+        logger.info("[PLACE_ORDER] {} - Predicted profit limit price: {}", instrumentKey, profitLimitPricePredicted);
 
         if (krakenSpotLastValue.compareTo(krakenFutureLastValue) > 0) {
+            logger.info("[PLACE_ORDER] {} - Spot > Futures: placing BID (long) market/limit order", instrumentKey);
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "ASK";
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
+                logger.info("[PLACE_ORDER] {} - Market order not placed, falling back to limit order", instrumentKey);
                 placeLimitOrder(instrument, originalAmount, "BID", krakenFutureLastValue,
                         openPositionsList);
             }
@@ -323,11 +314,13 @@ public class KrakenFutureConfiguration {
                     openPositionPrice,
                     profitLimitPricePredicted);
         } else if (krakenSpotLastValue.compareTo(krakenFutureLastValue) < 0) {
+            logger.info("[PLACE_ORDER] {} - Spot < Futures: placing ASK (short) market/limit order", instrumentKey);
             if (triggerOrderType.isEmpty())
                 triggerOrderType = "BID";
             String marketOrderId = placeMarketOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                     openPositionsList);
             if (marketOrderId.isEmpty()) {
+                logger.info("[PLACE_ORDER] {} - Market order not placed, falling back to limit order", instrumentKey);
                 placeLimitOrder(instrument, originalAmount, "ASK", krakenFutureLastValue,
                         openPositionsList);
             }
@@ -337,9 +330,9 @@ public class KrakenFutureConfiguration {
                     openPositionPrice,
                     profitLimitPricePredicted);
         } else {
-            // do nothing
+            logger.info("[PLACE_ORDER] {} - Spot == Futures price. No order placed.", instrumentKey);
         }
-        return null;
+        return new OrderResult(true, "Order placement completed for " + instrumentKey);
     }
 
     private void placeTakeProfitPostValidation(Instrument instrument, BigDecimal originalAmount,
@@ -372,6 +365,7 @@ public class KrakenFutureConfiguration {
                                    List<OpenPosition> openPositionsList)
             throws IOException {
 
+        String instrumentKey = instrument.getBase().getCurrencyCode();
         String orderId = "";
         boolean shouldBePlaced = true;
         BigDecimal limitPrice = price;
@@ -380,6 +374,9 @@ public class KrakenFutureConfiguration {
 
         shouldBePlaced = isAllowedTrade(bidType, openPositionsList, shouldBePlaced, limitPrice, instrument);
 
+        logger.info("[MARKET_ORDER] {} - bidType={}, price={}, amount={}, shouldBePlaced={}",
+                instrumentKey, bidType, limitPrice, originalAmount, shouldBePlaced);
+
         try {
             if (shouldBePlaced) {
                 orderId = getExchange().getTradeService()
@@ -387,11 +384,13 @@ public class KrakenFutureConfiguration {
                                 .originalAmount(originalAmount)
                                 .build());
 
-                System.out.println("Placed Market Order " + bidType + "with order id :" + orderId);
+                logger.info("[MARKET_ORDER] {} - Placed Market Order type={}, orderId={}", instrumentKey, bidType, orderId);
+            } else {
+                logger.warn("[MARKET_ORDER] {} - Market order NOT placed (isAllowedTrade=false) for bidType={}", instrumentKey, bidType);
             }
 
         } catch (Exception e) {
-            System.out.println("Inside Market Order Exception:" + e.getMessage());
+            logger.error("[MARKET_ORDER] {} - Exception placing market order: {}", instrumentKey, e.getMessage(), e);
         }
         return orderId;
     }
@@ -412,27 +411,32 @@ public class KrakenFutureConfiguration {
                                 List<OpenPosition> openPositionsList)
             throws IOException {
 
+        String instrumentKey = instrument.getBase().getCurrencyCode();
         boolean shouldBePlaced = true;
         BigDecimal limitPrice = price;
 
         limitPrice = priceDecimalPrecision(instrument, limitPrice);
 
         shouldBePlaced = isAllowedTrade(bidType, openPositionsList, shouldBePlaced, limitPrice, instrument);
-        try {
 
+        logger.info("[LIMIT_ORDER] {} - bidType={}, price={}, amount={}, shouldBePlaced={}",
+                instrumentKey, bidType, limitPrice, originalAmount, shouldBePlaced);
+
+        try {
             if (shouldBePlaced) {
                 String orderId = getExchange().getTradeService()
                         .placeLimitOrder(new LimitOrder.Builder(Order.OrderType.valueOf(bidType), instrument)
                                 .limitPrice(limitPrice)
                                 .originalAmount(originalAmount)
                                 .build());
-                System.out
-                        .println("Placed Limit Order " + bidType + "for value" + limitPrice + "with order id :"
-                                + orderId);
+                logger.info("[LIMIT_ORDER] {} - Placed Limit Order type={}, price={}, orderId={}",
+                        instrumentKey, bidType, limitPrice, orderId);
+            } else {
+                logger.warn("[LIMIT_ORDER] {} - Limit order NOT placed (isAllowedTrade=false) for bidType={}", instrumentKey, bidType);
             }
 
         } catch (Exception e) {
-            System.out.println("Inside Exception Limit Order:" + e.getMessage());
+            logger.error("[LIMIT_ORDER] {} - Exception placing limit order: {}", instrumentKey, e.getMessage(), e);
         }
     }
 
@@ -474,46 +478,41 @@ public class KrakenFutureConfiguration {
     public void placeStopOrder(Instrument instrument, BigDecimal originalAmount, String bidType, BigDecimal price,
                                List<OpenPosition> openPositionsList)
             throws IOException {
+        String instrumentKey = instrument.getBase().getCurrencyCode();
         BigDecimal stopPrice;
         OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
-                .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny().orElse(null);
+                .getCurrencyCode().contains(instrumentKey)).findAny().orElse(null);
 
         // Use the SAME quantity that was used to open the position
-        String instrumentKey = instrument.getBase().getCurrencyCode();
         if (openPosition != null) {
             // Use the tracked quantity to ensure we close with the same amount used to open
             BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
             if (trackedQuantity != null) {
                 originalAmount = trackedQuantity;
-                System.out.println("Stop Order - Using tracked quantity: " + originalAmount);
+                logger.info("[STOP_ORDER] {} - Using tracked quantity: {}", instrumentKey, originalAmount);
             } else {
                 // Fallback to position size if not tracked
                 originalAmount = openPosition.getSize();
+                logger.warn("[STOP_ORDER] {} - No tracked quantity found, using position size: {}", instrumentKey, originalAmount);
             }
         }
 
         if (bidType.equals("BID")) {
-            if (openPositionsList.size() > 0) {
-                if (openPosition != null) {
-                    price = openPosition.getPrice();
-                    stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
-                }
-                stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+            if (!openPositionsList.isEmpty() && openPosition != null) {
+                price = openPosition.getPrice();
+                logger.info("[STOP_ORDER] {} - BID stop: using open position price: {}", instrumentKey, price);
             }
             stopPrice = price.plus().add(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
         } else {
-            if (openPositionsList.size() > 0) {
-                if (openPosition != null) {
-                    price = openPosition.getPrice();
-                    stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
-                }
-                stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
-
+            if (!openPositionsList.isEmpty() && openPosition != null) {
+                price = openPosition.getPrice();
+                logger.info("[STOP_ORDER] {} - ASK stop: using open position price: {}", instrumentKey, price);
             }
             stopPrice = price.subtract(price.multiply(BigDecimal.valueOf(0.1 / 100.0)));
         }
 
         stopPrice = priceDecimalPrecision(instrument, stopPrice);
+        logger.info("[STOP_ORDER] {} - bidType={}, stopPrice={}, amount={}", instrumentKey, bidType, stopPrice, originalAmount);
 
         try {
             String orderId = getExchange().getTradeService()
@@ -524,10 +523,11 @@ public class KrakenFutureConfiguration {
                             .originalAmount(originalAmount)
                             .build());
 
-            System.out.println("Placed Stop Loss" + bidType + "for value" + stopPrice + "with order id :" + orderId);
+            logger.info("[STOP_ORDER] {} - Placed Stop Loss type={}, stopPrice={}, orderId={}",
+                    instrumentKey, bidType, stopPrice, orderId);
 
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            logger.error("[STOP_ORDER] {} - Exception placing stop order: {}", instrumentKey, e.getMessage(), e);
         }
 
     }
@@ -536,37 +536,43 @@ public class KrakenFutureConfiguration {
                                      List<OpenPosition> openPositionsList)
             throws IOException {
 
-        System.out.println("Inside Profit Order");
+        String instrumentKey = instrument.getBase().getCurrencyCode();
+        logger.info("[TAKE_PROFIT] {} - Entering take profit order placement, bidType={}, price={}", instrumentKey, bidType, price);
 
         boolean shouldBePlaced = true;
-
         BigDecimal positionSize = BigDecimal.ZERO;
 
         // Use the SAME quantity that was used to open the position
-        String instrumentKey = instrument.getBase().getCurrencyCode();
-        if (openPositionsList.size() > 0) {
+        if (!openPositionsList.isEmpty()) {
             OpenPosition openPosition = openPositionsList.stream().filter(arg0 -> arg0.getInstrument().getBase()
-                    .getCurrencyCode().contains(instrument.getBase().getCurrencyCode()) == true).findAny().orElse(null);
+                    .getCurrencyCode().contains(instrumentKey)).findAny().orElse(null);
             if (openPosition != null) {
                 // Use the tracked quantity to ensure we close with the same amount used to open
                 BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
                 if (trackedQuantity != null) {
                     positionSize = trackedQuantity;
-                    System.out.println("Take Profit Order - Using tracked quantity: " + positionSize);
+                    logger.info("[TAKE_PROFIT] {} - Using tracked quantity: {}", instrumentKey, positionSize);
                 } else {
                     // Fallback to position size if not tracked
                     positionSize = openPosition.getSize();
+                    logger.warn("[TAKE_PROFIT] {} - No tracked quantity found, using position size: {}", instrumentKey, positionSize);
                 }
             } else {
                 positionSize = originalAmount;
+                logger.info("[TAKE_PROFIT] {} - No matching open position, using original amount: {}", instrumentKey, positionSize);
             }
         } else {
             positionSize = originalAmount;
+            logger.info("[TAKE_PROFIT] {} - No open positions, using original amount: {}", instrumentKey, positionSize);
         }
 
         boolean isAllowedTrade = isAllowedTrade(bidType, openPositionsList, shouldBePlaced, price, instrument);
         BigDecimal stopPrice = price;
         stopPrice = priceDecimalPrecision(instrument, stopPrice);
+
+        logger.info("[TAKE_PROFIT] {} - bidType={}, stopPrice={}, positionSize={}, isAllowedTrade={}",
+                instrumentKey, bidType, stopPrice, positionSize, isAllowedTrade);
+
         try {
             if (isAllowedTrade) {
                 String orderId = getExchange().getTradeService()
@@ -576,12 +582,14 @@ public class KrakenFutureConfiguration {
                                 .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
                                 .originalAmount(positionSize)
                                 .build());
-                System.out.println(
-                        "Placed Take Profit" + bidType + "for value" + stopPrice + "with order id :" + orderId);
+                logger.info("[TAKE_PROFIT] {} - Placed Take Profit type={}, stopPrice={}, orderId={}",
+                        instrumentKey, bidType, stopPrice, orderId);
+            } else {
+                logger.warn("[TAKE_PROFIT] {} - Take profit order NOT placed (isAllowedTrade=false) for bidType={}", instrumentKey, bidType);
             }
 
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            logger.error("[TAKE_PROFIT] {} - Exception placing take profit order: {}", instrumentKey, e.getMessage(), e);
         }
 
     }
@@ -607,67 +615,78 @@ public class KrakenFutureConfiguration {
 
         List<LimitOrder> openOrders = getExchange().getTradeService().getOpenOrders().getOpenOrders();
         if (!openOrders.isEmpty()) {
+            logger.info("[CANCEL] Cancelling top first order: {}", openOrders.get(0).getId());
             getExchange().getTradeService().cancelOrder(openOrders.get(0).getId());
         }
-        // getExchange().getTradeService().cancelAllOrders(new
-        // DefaultCancelAllOrdersByInstrument(instrument));
-
     }
 
     public void checkAccount() throws IOException {
 
         AccountInfo accountInfo = getExchange().getAccountService().getAccountInfo();
-        System.out.println(accountInfo);
-        System.out.println(accountInfo.getWallet(Wallet.WalletFeature.FUTURES_TRADING).toString());
-        System.out.println(Objects.requireNonNull(accountInfo.getWallet(Wallet.WalletFeature.FUTURES_TRADING))
-                .getCurrentLeverage().toString());
+        logger.info("[ACCOUNT] Account info: {}", accountInfo);
+        logger.info("[ACCOUNT] Futures wallet: {}", accountInfo.getWallet(Wallet.WalletFeature.FUTURES_TRADING));
+        logger.info("[ACCOUNT] Current leverage: {}",
+                Objects.requireNonNull(accountInfo.getWallet(Wallet.WalletFeature.FUTURES_TRADING))
+                        .getCurrentLeverage());
     }
 
     public void checkOpenOrdersandCancelFirst(Instrument instrument) throws IOException {
+        String instrumentKey = instrument.getBase().getCurrencyCode();
         OpenOrders openOrders = getExchange().getTradeService().getOpenOrders();
-        System.out.println("Inside Cancelling Orders");
+        logger.info("[CANCEL_ORDERS] {} - Checking open orders before placing new order", instrumentKey);
+
         if (!openOrders.getHiddenOrders().isEmpty()) {
-            System.out.println("Before Cancelling Trigger Order the count was:" + openOrders.getHiddenOrders().size());
+            logger.info("[CANCEL_ORDERS] {} - Found {} hidden/trigger orders. Cancelling all for this instrument.",
+                    instrumentKey, openOrders.getHiddenOrders().size());
             openOrders.getHiddenOrders().stream()
                     .filter(arg0 -> arg0.getInstrument().getBase().getCurrencyCode()
-                            .contains(instrument.getBase().getCurrencyCode()))
+                            .contains(instrumentKey))
                     .forEach(arg0 -> {
                         try {
                             String orderId = arg0.getId();
                             getExchange().getTradeService()
                                     .cancelOrder(new DefaultCancelOrderByInstrumentAndIdParams(instrument, orderId));
-                            System.out.println("Cancelled Order" + orderId);
+                            logger.info("[CANCEL_ORDERS] {} - Cancelled order: {}", instrumentKey, orderId);
                         } catch (IOException e) {
-                            e.printStackTrace();
+                            logger.error("[CANCEL_ORDERS] {} - Error cancelling order: {}", instrumentKey, e.getMessage(), e);
                         }
                     });
+        } else {
+            logger.info("[CANCEL_ORDERS] {} - No hidden/trigger orders to cancel.", instrumentKey);
         }
 
         OpenOrders postOpenOrders = getExchange().getTradeService().getOpenOrders();
-
-        System.out.println("After Cancelling Trigger Order the count is:" + postOpenOrders.getHiddenOrders().size());
-
+        logger.info("[CANCEL_ORDERS] {} - After cancellation: {} hidden orders remaining.",
+                instrumentKey, postOpenOrders.getHiddenOrders().size());
     }
 
     public List<OpenPosition> getPositions() throws IOException {
         List<OpenPosition> openPositions = getExchange().getTradeService().getOpenPositions().getOpenPositions();
 
+        logger.info("[POSITIONS] Fetched {} open position(s) from exchange.", openPositions.size());
+
         // Clean up position quantities for positions that no longer exist
         if (openPositions.isEmpty()) {
-            positionQuantities.clear();
-            System.out.println("All positions closed, cleared tracked quantities");
+            if (!positionQuantities.isEmpty()) {
+                logger.info("[POSITIONS] All positions closed. Clearing tracked quantities: {}", positionQuantities);
+                positionQuantities.clear();
+            }
         } else {
             // Remove tracking for positions that have been closed
-            positionQuantities.keySet().retainAll(
-                    openPositions.stream()
-                            .map(p -> p.getInstrument().getBase().getCurrencyCode())
-                            .collect(java.util.stream.Collectors.toSet())
+            java.util.Set<String> activeKeys = openPositions.stream()
+                    .map(p -> p.getInstrument().getBase().getCurrencyCode())
+                    .collect(java.util.stream.Collectors.toSet());
+            positionQuantities.keySet().retainAll(activeKeys);
+
+            openPositions.forEach(openPosition ->
+                    logger.info("[POSITIONS] Open position: instrument={}, type={}, size={}, price={}",
+                            openPosition.getInstrument().getBase().getCurrencyCode(),
+                            openPosition.getType(),
+                            openPosition.getSize(),
+                            openPosition.getPrice())
             );
         }
 
-        for (OpenPosition openPosition : openPositions) {
-            System.out.println(openPosition);
-        }
         return openPositions;
     }
 
@@ -678,10 +697,9 @@ public class KrakenFutureConfiguration {
         List<KrakenFuturesOpenPosition> openPositions = tradeServiceRaw.getKrakenFuturesOpenPositions()
                 .getOpenPositions();
         for (KrakenFuturesOpenPosition openPosition : openPositions) {
-            System.out.println(openPosition);
+            logger.info("[POSITIONS_RAW] {}", openPosition);
         }
         return openPositions;
     }
 
 }
-

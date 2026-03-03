@@ -800,4 +800,156 @@ public class KrakenFutureConfiguration {
         return cancelledCount;
     }
 
+    /**
+     * Ensure every open position has both a stop-loss and a take-profit protective order.
+     *
+     * For each open position:
+     * - Checks existing hidden/trigger orders for a matching STOP_LOSS and TAKE_PROFIT
+     * - If stop-loss is missing, places one at position entry price ± 0.1%
+     * - If take-profit is missing, places one at the predicted profit limit price
+     *
+     * Direction logic:
+     * - LONG position: stop-loss = BID below entry, take-profit = ASK above entry
+     * - SHORT position: stop-loss = ASK above entry, take-profit = BID below entry
+     *
+     * @return number of protective orders placed
+     */
+    public int ensureProtectiveOrders() throws IOException {
+        List<OpenPosition> openPositions = getPositions();
+        if (openPositions.isEmpty()) {
+            logger.info("[PROTECT] No open positions found. Nothing to protect.");
+            return 0;
+        }
+
+        OpenOrders openOrders = getExchange().getTradeService().getOpenOrders();
+        List<StopOrder> existingProtectiveOrders = openOrders.getHiddenOrders();
+
+        logger.info("[PROTECT] Checking {} open position(s) for missing protective orders. Existing hidden orders: {}",
+                openPositions.size(), existingProtectiveOrders.size());
+
+        // Log all existing protective orders for visibility
+        existingProtectiveOrders.forEach(o -> logger.info("[PROTECT] Existing hidden order: id={}, instrument={}, type={}, intention={}, stopPrice={}",
+                o.getId(),
+                o.getInstrument() != null ? o.getInstrument().getBase().getCurrencyCode() : "unknown",
+                o.getType(),
+                o.getIntention(),
+                o.getStopPrice()));
+
+        int placedCount = 0;
+
+        for (OpenPosition position : openPositions) {
+            String instrumentKey = position.getInstrument().getBase().getCurrencyCode();
+            Instrument instrument = position.getInstrument();
+            boolean isLong = position.getType() == OpenPosition.Type.LONG;
+            BigDecimal entryPrice = position.getPrice();
+            BigDecimal positionSize = position.getSize();
+
+            // Use tracked quantity if available, otherwise use position size
+            BigDecimal trackedQuantity = positionQuantities.get(instrumentKey);
+            BigDecimal orderSize = (trackedQuantity != null) ? trackedQuantity : positionSize;
+
+            logger.info("[PROTECT] Checking position: instrument={}, type={}, entryPrice={}, size={}, orderSize={}",
+                    instrumentKey, position.getType(), entryPrice, positionSize, orderSize);
+
+            // Determine order types based on position direction
+            // LONG: stop-loss = BID (sell), take-profit = ASK (sell)
+            // SHORT: stop-loss = ASK (buy), take-profit = BID (buy)
+            String stopLossOrderType = isLong ? "BID" : "ASK";
+            String takeProfitOrderType = isLong ? "ASK" : "BID";
+
+            // Check if stop-loss exists for this instrument
+            boolean hasStopLoss = existingProtectiveOrders.stream()
+                    .anyMatch(o -> o.getInstrument() != null
+                            && o.getInstrument().getBase().getCurrencyCode().equals(instrumentKey)
+                            && o.getIntention() == StopOrder.Intention.STOP_LOSS);
+
+            // Check if take-profit exists for this instrument
+            boolean hasTakeProfit = existingProtectiveOrders.stream()
+                    .anyMatch(o -> o.getInstrument() != null
+                            && o.getInstrument().getBase().getCurrencyCode().equals(instrumentKey)
+                            && o.getIntention() == StopOrder.Intention.TAKE_PROFIT);
+
+            logger.info("[PROTECT] {} - hasStopLoss={}, hasTakeProfit={}", instrumentKey, hasStopLoss, hasTakeProfit);
+
+            // Place missing stop-loss
+            if (!hasStopLoss) {
+                logger.warn("[PROTECT] {} - MISSING stop-loss! Placing stop-loss order now.", instrumentKey);
+                try {
+                    // Stop-loss: 0.1% beyond entry price in the loss direction
+                    BigDecimal stopLossPrice;
+                    if (isLong) {
+                        // LONG: stop-loss below entry price (sell if price drops)
+                        stopLossPrice = entryPrice.subtract(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                    } else {
+                        // SHORT: stop-loss above entry price (buy if price rises)
+                        stopLossPrice = entryPrice.plus().add(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                    }
+                    stopLossPrice = priceDecimalPrecision(instrument, stopLossPrice);
+
+                    logger.info("[PROTECT] {} - Placing stop-loss: type={}, stopPrice={}, size={}",
+                            instrumentKey, stopLossOrderType, stopLossPrice, orderSize);
+
+                    String orderId = getExchange().getTradeService()
+                            .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(stopLossOrderType), instrument)
+                                    .intention(StopOrder.Intention.STOP_LOSS)
+                                    .stopPrice(stopLossPrice)
+                                    .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
+                                    .originalAmount(orderSize)
+                                    .build());
+                    placedCount++;
+                    logger.info("[PROTECT] {} - Stop-loss placed successfully: orderId={}, stopPrice={}",
+                            instrumentKey, orderId, stopLossPrice);
+                } catch (Exception e) {
+                    logger.error("[PROTECT] {} - Failed to place stop-loss: {}", instrumentKey, e.getMessage(), e);
+                }
+            } else {
+                logger.info("[PROTECT] {} - Stop-loss already exists. No action needed.", instrumentKey);
+            }
+
+            // Place missing take-profit
+            if (!hasTakeProfit) {
+                logger.warn("[PROTECT] {} - MISSING take-profit! Placing take-profit order now.", instrumentKey);
+                try {
+                    // Take-profit: use predicted profit limit price from spot/futures analysis
+                    BigDecimal takeProfitPrice;
+                    try {
+                        takeProfitPrice = getProfitLimitPrice(instrument);
+                        logger.info("[PROTECT] {} - Using predicted profit limit price: {}", instrumentKey, takeProfitPrice);
+                    } catch (Exception e) {
+                        // Fallback: 0.1% beyond entry price in the profit direction
+                        logger.warn("[PROTECT] {} - Could not get predicted profit price ({}), using fallback +/-0.1%", instrumentKey, e.getMessage());
+                        if (isLong) {
+                            takeProfitPrice = entryPrice.plus().add(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                        } else {
+                            takeProfitPrice = entryPrice.subtract(entryPrice.multiply(BigDecimal.valueOf(0.1 / 100.0)));
+                        }
+                    }
+                    takeProfitPrice = priceDecimalPrecision(instrument, takeProfitPrice);
+
+                    logger.info("[PROTECT] {} - Placing take-profit: type={}, stopPrice={}, size={}",
+                            instrumentKey, takeProfitOrderType, takeProfitPrice, orderSize);
+
+                    String orderId = getExchange().getTradeService()
+                            .placeStopOrder(new StopOrder.Builder(Order.OrderType.valueOf(takeProfitOrderType), instrument)
+                                    .intention(StopOrder.Intention.TAKE_PROFIT)
+                                    .stopPrice(takeProfitPrice)
+                                    .flag(KrakenFuturesOrderFlags.REDUCE_ONLY)
+                                    .originalAmount(orderSize)
+                                    .build());
+                    placedCount++;
+                    logger.info("[PROTECT] {} - Take-profit placed successfully: orderId={}, stopPrice={}",
+                            instrumentKey, orderId, takeProfitPrice);
+                } catch (Exception e) {
+                    logger.error("[PROTECT] {} - Failed to place take-profit: {}", instrumentKey, e.getMessage(), e);
+                }
+            } else {
+                logger.info("[PROTECT] {} - Take-profit already exists. No action needed.", instrumentKey);
+            }
+        }
+
+        logger.info("[PROTECT] Protective orders check complete. Placed {} new protective order(s) for {} position(s).",
+                placedCount, openPositions.size());
+        return placedCount;
+    }
+
 }

@@ -111,6 +111,31 @@ public class ScheduledTradingService {
     }
 
     /**
+     * Scheduled task to ensure every open position has both a stop-loss and a take-profit order.
+     * Runs at the same interval as the main trading cycle.
+     * If a protective order is missing, it is automatically placed.
+     */
+    @Scheduled(fixedDelayString = "${trading.scheduler.interval-ms:30000}")
+    public void ensureProtectiveOrders() {
+        if (!schedulerEnabled || isPaused.get()) {
+            logger.debug("[PROTECT_TASK] Scheduler paused or disabled, skipping protective orders check.");
+            return;
+        }
+
+        logger.info("[PROTECT_TASK] Running protective orders check (stop-loss + take-profit for all open positions)...");
+        try {
+            int placed = krakenConfiguration.ensureProtectiveOrders();
+            if (placed > 0) {
+                logger.info("[PROTECT_TASK] Placed {} missing protective order(s).", placed);
+            } else {
+                logger.info("[PROTECT_TASK] All open positions already have protective orders.");
+            }
+        } catch (Exception e) {
+            logger.error("[PROTECT_TASK] Error during protective orders check: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
      * Scheduled task to cancel unfilled open orders that have exceeded the configured expiry period.
      * Runs at the same interval as the main trading cycle.
      * Controlled by {@code trading.order.expiry-ms} property (0 = disabled).

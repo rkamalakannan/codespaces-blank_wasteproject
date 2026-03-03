@@ -153,6 +153,22 @@ public class BotController {
         return "Orders cancelled for " + asset;
     }
 
+    @PostMapping("/ensure-protective-orders")
+    @Operation(summary = "Ensure protective orders",
+            description = "Check all open positions and place missing stop-loss or take-profit orders. " +
+                    "Every open position must have both a stop-loss and a take-profit order.")
+    public Map<String, Object> ensureProtectiveOrders() throws IOException {
+        logger.info("[MANUAL_PROTECT] Manually triggering protective orders check...");
+        int placed = krakenConfiguration.ensureProtectiveOrders();
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("placedCount", placed);
+        result.put("message", placed > 0
+                ? "Placed " + placed + " missing protective order(s)"
+                : "All open positions already have stop-loss and take-profit orders");
+        logger.info("[MANUAL_PROTECT] Result: {}", result);
+        return result;
+    }
+
     @PostMapping("/cancel-expired-orders")
     @Operation(summary = "Cancel expired open orders",
             description = "Manually trigger cancellation of all unfilled open orders older than the configured expiry period (trading.order.expiry-ms)")

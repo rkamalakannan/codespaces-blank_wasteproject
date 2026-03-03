@@ -763,10 +763,11 @@ public class KrakenFutureConfiguration {
         }
 
         // Cancel expired hidden/trigger orders (stop-loss, take-profit)
-        List<StopOrder> hiddenOrders = openOrders.getHiddenOrders();
+        // getHiddenOrders() returns List<? extends Order> in XChange 5.x
+        List<? extends Order> hiddenOrders = openOrders.getHiddenOrders();
         logger.info("[EXPIRY] Found {} hidden/trigger order(s) to check.", hiddenOrders.size());
 
-        for (StopOrder order : hiddenOrders) {
+        for (Order order : hiddenOrders) {
             java.util.Date orderTimestamp = order.getTimestamp();
             if (orderTimestamp == null) {
                 logger.warn("[EXPIRY] Hidden order {} has no timestamp - skipping expiry check.", order.getId());
@@ -774,11 +775,10 @@ public class KrakenFutureConfiguration {
             }
             long orderAgeMs = now - orderTimestamp.getTime();
             if (orderTimestamp.getTime() < cutoffTime) {
-                logger.info("[EXPIRY] Cancelling expired hidden/trigger order: id={}, instrument={}, type={}, stopPrice={}, age={}ms ({}s)",
+                logger.info("[EXPIRY] Cancelling expired hidden/trigger order: id={}, instrument={}, type={}, age={}ms ({}s)",
                         order.getId(),
                         order.getInstrument() != null ? order.getInstrument().toString() : "unknown",
                         order.getType(),
-                        order.getStopPrice(),
                         orderAgeMs,
                         orderAgeMs / 1000);
                 try {
@@ -822,18 +822,23 @@ public class KrakenFutureConfiguration {
         }
 
         OpenOrders openOrders = getExchange().getTradeService().getOpenOrders();
-        List<StopOrder> existingProtectiveOrders = openOrders.getHiddenOrders();
+        // getHiddenOrders() returns List<? extends Order> in XChange 5.x
+        List<? extends Order> existingProtectiveOrders = openOrders.getHiddenOrders();
 
         logger.info("[PROTECT] Checking {} open position(s) for missing protective orders. Existing hidden orders: {}",
                 openPositions.size(), existingProtectiveOrders.size());
 
         // Log all existing protective orders for visibility
-        existingProtectiveOrders.forEach(o -> logger.info("[PROTECT] Existing hidden order: id={}, instrument={}, type={}, intention={}, stopPrice={}",
-                o.getId(),
-                o.getInstrument() != null ? o.getInstrument().getBase().getCurrencyCode() : "unknown",
-                o.getType(),
-                o.getIntention(),
-                o.getStopPrice()));
+        existingProtectiveOrders.forEach(o -> {
+            String intention = (o instanceof StopOrder) ? String.valueOf(((StopOrder) o).getIntention()) : "N/A";
+            String stopPrice = (o instanceof StopOrder) ? String.valueOf(((StopOrder) o).getStopPrice()) : "N/A";
+            logger.info("[PROTECT] Existing hidden order: id={}, instrument={}, type={}, intention={}, stopPrice={}",
+                    o.getId(),
+                    o.getInstrument() != null ? o.getInstrument().getBase().getCurrencyCode() : "unknown",
+                    o.getType(),
+                    intention,
+                    stopPrice);
+        });
 
         int placedCount = 0;
 
@@ -857,17 +862,19 @@ public class KrakenFutureConfiguration {
             String stopLossOrderType = isLong ? "BID" : "ASK";
             String takeProfitOrderType = isLong ? "ASK" : "BID";
 
-            // Check if stop-loss exists for this instrument
+            // Check if stop-loss exists for this instrument (cast to StopOrder to access intention)
             boolean hasStopLoss = existingProtectiveOrders.stream()
                     .anyMatch(o -> o.getInstrument() != null
                             && o.getInstrument().getBase().getCurrencyCode().equals(instrumentKey)
-                            && o.getIntention() == StopOrder.Intention.STOP_LOSS);
+                            && (o instanceof StopOrder)
+                            && ((StopOrder) o).getIntention() == StopOrder.Intention.STOP_LOSS);
 
             // Check if take-profit exists for this instrument
             boolean hasTakeProfit = existingProtectiveOrders.stream()
                     .anyMatch(o -> o.getInstrument() != null
                             && o.getInstrument().getBase().getCurrencyCode().equals(instrumentKey)
-                            && o.getIntention() == StopOrder.Intention.TAKE_PROFIT);
+                            && (o instanceof StopOrder)
+                            && ((StopOrder) o).getIntention() == StopOrder.Intention.TAKE_PROFIT);
 
             logger.info("[PROTECT] {} - hasStopLoss={}, hasTakeProfit={}", instrumentKey, hasStopLoss, hasTakeProfit);
 

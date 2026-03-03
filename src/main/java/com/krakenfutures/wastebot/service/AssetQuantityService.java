@@ -36,13 +36,25 @@ public class AssetQuantityService {
     }
 
     /**
-     * Set quantity for a specific asset - each asset has its own unique quantity setting
+     * Set quantity for a specific asset - each asset has its own unique quantity setting.
+     * The raw quantity is stored WITHOUT precision truncation.
+     * Precision is applied at order placement time (in ScheduledTradingService.adjustAmountPrecision).
+     * This prevents small values like 0.0002 from being truncated to 0 at storage time.
      */
     public void setQuantity(String asset, BigDecimal quantity, int amountPrecision) {
         String key = asset.toUpperCase();
-        BigDecimal adjustedQuantity = quantity.setScale(amountPrecision, RoundingMode.DOWN);
-        assetQuantities.put(key, adjustedQuantity);
-        logger.info("Set unique quantity for {}: {} (overrides default {})", key, adjustedQuantity, defaultAmount);
+        // Store the raw quantity - do NOT truncate here
+        assetQuantities.put(key, quantity);
+        // Log what the effective precision-adjusted value will be at order time
+        BigDecimal previewAdjusted = quantity.setScale(amountPrecision, RoundingMode.DOWN);
+        if (previewAdjusted.compareTo(BigDecimal.ZERO) == 0) {
+            logger.warn("Set quantity for {}: {} (raw). WARNING: This rounds to 0 with amountPrecision={}! " +
+                    "Increase the quantity or the asset's amountPrecision to avoid zero-amount orders.",
+                    key, quantity, amountPrecision);
+        } else {
+            logger.info("Set unique quantity for {}: {} (raw, will be {} after precision adjustment at order time, overrides default {})",
+                    key, quantity, previewAdjusted, defaultAmount);
+        }
     }
 
     /**

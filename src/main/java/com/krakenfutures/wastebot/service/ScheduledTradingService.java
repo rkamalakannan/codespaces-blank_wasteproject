@@ -73,23 +73,26 @@ public class ScheduledTradingService {
     // Minimum time between trades for same asset (milliseconds)
     private static final long MIN_TRADE_INTERVAL_MS = 60000; // 1 minute
 
-    // Supported assets with decimal precision for amounts
+    // Supported assets with decimal precision for amounts.
+    // amountPrecision: number of decimal places supported for order quantities.
+    // Set high enough to support small amounts like 0.0002 (needs at least 4 decimal places).
     public static final Map<String, AssetConfig> SUPPORTED_ASSETS = Map.ofEntries(
-        Map.entry("BTC", new AssetConfig("BTC", "USD", 8, 2)),
-        Map.entry("ETH", new AssetConfig("ETH", "USD", 8, 2)),
-        Map.entry("SOL", new AssetConfig("SOL", "USD", 9, 2)),
-        Map.entry("XRP", new AssetConfig("XRP", "USD", 6, 0)),
-        Map.entry("ADA", new AssetConfig("ADA", "USD", 6, 0)),
-        Map.entry("DOT", new AssetConfig("DOT", "USD", 10, 1)),
-        Map.entry("DOGE", new AssetConfig("DOGE", "USD", 8, 0)),
-        Map.entry("AVAX", new AssetConfig("AVAX", "USD", 8, 2)),
-        Map.entry("MATIC", new AssetConfig("MATIC", "USD", 10, 1)),
-        Map.entry("LINK", new AssetConfig("LINK", "USD", 10, 2)),
-        Map.entry("UNI", new AssetConfig("UNI", "USD", 10, 1)),
-        Map.entry("LTC", new AssetConfig("LTC", "USD", 8, 2)),
-        Map.entry("BCH", new AssetConfig("BCH", "USD", 8, 2)),
-        Map.entry("ATOM", new AssetConfig("ATOM", "USD", 10, 2)),
-        Map.entry("KSM", new AssetConfig("KSM", "USD", 10, 1))
+        Map.entry("BTC",  new AssetConfig("BTC",  "USD", 8, 4)),  // supports 0.0001 minimum
+        Map.entry("ETH",  new AssetConfig("ETH",  "USD", 8, 4)),  // supports 0.0001 minimum
+        Map.entry("SOL",  new AssetConfig("SOL",  "USD", 9, 4)),
+        Map.entry("XRP",  new AssetConfig("XRP",  "USD", 6, 2)),
+        Map.entry("ADA",  new AssetConfig("ADA",  "USD", 6, 2)),
+        Map.entry("DOT",  new AssetConfig("DOT",  "USD", 10, 3)),
+        Map.entry("DOGE", new AssetConfig("DOGE", "USD", 8, 2)),
+        Map.entry("AVAX", new AssetConfig("AVAX", "USD", 8, 4)),
+        Map.entry("MATIC",new AssetConfig("MATIC","USD", 10, 3)),
+        Map.entry("LINK", new AssetConfig("LINK", "USD", 10, 4)),
+        Map.entry("UNI",  new AssetConfig("UNI",  "USD", 10, 3)),
+        Map.entry("LTC",  new AssetConfig("LTC",  "USD", 8, 4)),
+        Map.entry("BCH",  new AssetConfig("BCH",  "USD", 8, 4)),
+        Map.entry("ATOM", new AssetConfig("ATOM", "USD", 10, 4)),
+        Map.entry("KSM",  new AssetConfig("KSM",  "USD", 10, 3)),
+        Map.entry("GMT",  new AssetConfig("GMT",  "USD", 10, 2))
     );
 
     // Active assets to trade (configurable)
@@ -282,10 +285,21 @@ public class ScheduledTradingService {
     }
 
     /**
-     * Adjust amount precision based on asset configuration
+     * Adjust amount precision based on asset configuration.
+     * Throws an exception if the amount rounds to zero, preventing zero-amount orders.
      */
     private BigDecimal adjustAmountPrecision(AssetConfig config, BigDecimal amount) {
-        return amount.setScale(config.getAmountPrecision(), RoundingMode.DOWN);
+        BigDecimal adjusted = amount.setScale(config.getAmountPrecision(), RoundingMode.DOWN);
+        if (adjusted.compareTo(BigDecimal.ZERO) == 0) {
+            String minAmount = "0." + "0".repeat(config.getAmountPrecision() - 1) + "1";
+            throw new IllegalArgumentException(
+                    "Amount " + amount + " for asset " + config.getSymbol() +
+                    " rounds to zero with amountPrecision=" + config.getAmountPrecision() +
+                    ". Please set a larger quantity (minimum: " + minAmount + ").");
+        }
+        logger.info("[AMOUNT] {} - Raw amount: {}, Adjusted to {} decimal places: {}",
+                config.getSymbol(), amount, config.getAmountPrecision(), adjusted);
+        return adjusted;
     }
 
     /**

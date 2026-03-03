@@ -92,11 +92,19 @@ public class BotController {
 
         logger.info("[MANUAL_TRADE] {} - Validation passed. No open position found. Proceeding with order.", assetUpper);
 
-        // Adjust amount precision based on asset
+        // Validate amount precision based on asset - warn if it would round to zero
         ScheduledTradingService.AssetConfig config =
             ScheduledTradingService.SUPPORTED_ASSETS.get(assetUpper);
         if (config != null) {
-            amount = amount.setScale(config.getAmountPrecision(), BigDecimal.ROUND_DOWN);
+            BigDecimal adjusted = amount.setScale(config.getAmountPrecision(), java.math.RoundingMode.DOWN);
+            if (adjusted.compareTo(BigDecimal.ZERO) == 0) {
+                String msg = "Amount " + amount + " for asset " + assetUpper +
+                        " rounds to zero with amountPrecision=" + config.getAmountPrecision() +
+                        ". Please provide a larger amount.";
+                logger.warn("[MANUAL_TRADE] {} - {}", assetUpper, msg);
+                return msg;
+            }
+            amount = adjusted;
             logger.info("[MANUAL_TRADE] {} - Amount adjusted to precision {}: {}", assetUpper, config.getAmountPrecision(), amount);
         }
 

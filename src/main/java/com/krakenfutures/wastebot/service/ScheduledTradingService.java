@@ -255,12 +255,12 @@ public class ScheduledTradingService {
 
     /**
      * Process a single asset for trading opportunities.
-     * Strategy is selected via trading.strategy property: "arbitrage" or "momentum".
+     * Strategy is selected via trading.strategy property: "arbitrage", "momentum", or "combined".
      *
      * Guards are applied in this order:
      * 1. Asset support check
      * 2. Open position check via validateOrderPlacement() (API call)
-     * 3. Strategy analysis (momentum or arbitrage)
+     * 3. Strategy analysis (momentum, arbitrage, or combined)
      * 4. placeOrder() performs a second open position check as a safety net
      */
     private void processAsset(String asset) throws IOException {
@@ -294,6 +294,8 @@ public class ScheduledTradingService {
             // Strategy selection
             if ("momentum".equalsIgnoreCase(tradingStrategy)) {
                 result = processMomentumStrategy(asset, instrument, config);
+            } else if ("combined".equalsIgnoreCase(tradingStrategy)) {
+                result = processCombinedStrategy(asset, instrument, config);
             } else {
                 // Default to arbitrage strategy (original logic)
                 result = processArbitrageStrategy(asset, instrument, config);

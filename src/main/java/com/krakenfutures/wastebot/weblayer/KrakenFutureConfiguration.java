@@ -55,13 +55,18 @@ public class KrakenFutureConfiguration {
 
     private Exchange exchange;
 
-    // Configurable stop-loss percentage distance from entry price (default 1.0%)
-    @Value("${trading.stop-loss-percent:1.0}")
+    // Configurable stop-loss percentage distance from entry price (default 2.0%)
+    @Value("${trading.stop-loss-percent:2.0}")
     private double stopLossPercent;
 
-    // Configurable take-profit fallback percentage distance from entry price (default 1.0%)
-    @Value("${trading.take-profit-percent:1.0}")
+    // Configurable take-profit fallback percentage distance from entry price (default 2.0%)
+    @Value("${trading.take-profit-percent:2.0}")
     private double takeProfitPercent;
+
+    // Minimum spread percentage between spot and futures to trigger a trade (default 0.5%)
+    // Must be larger than total fees (~0.5% round-trip) to be profitable
+    @Value("${trading.min-spread-percent:0.5}")
+    private double minSpreadPercent;
 
     // Track the quantity used to open each position (key: instrument base currency)
     // This ensures we close positions with the exact same quantity used to open them
@@ -144,11 +149,18 @@ public class KrakenFutureConfiguration {
 
         logger.info("[PROFIT_LIMIT] futures mark price={}, spot last={}", krakenFutureLastValue, spotLast);
 
-        if (futureBigDecimalPercentage.max(spotBigDecimalPercentage) == futureBigDecimalPercentage) {
-            if (priceDifference.compareTo(BigDecimal.ZERO) > 0)
-                predictedPrice = krakenFutureTicker.getMarkPrice().subtract(priceDifference);
-            predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
+        // FIX: The original logic had a bug where the second assignment always overwrote the first
+        if (futureBigDecimalPercentage.max(spotBigDecimalPercentage).equals(futureBigDecimalPercentage)) {
+            // Futures is moving faster than spot
+            if (priceDifference.compareTo(BigDecimal.ZERO) > 0) {
+                // Spot > Futures: predict futures will rise to close the gap
+                predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
+            } else {
+                // Futures > Spot: predict futures will fall to close the gap
+                predictedPrice = krakenFutureTicker.getMarkPrice().subtract(priceDifference.abs());
+            }
         } else {
+            // Spot is moving faster than futures: predict futures will follow spot
             predictedPrice = krakenFutureTicker.getMarkPrice().plus().add(priceDifference);
         }
         logger.info("[PROFIT_LIMIT] predictedPrice={}, priceDifference={}", predictedPrice, priceDifference);
@@ -302,6 +314,27 @@ public class KrakenFutureConfiguration {
 
         logger.info("[PLACE_ORDER] {} - Futures mark price: {}, Spot ask price: {}",
                 instrumentKey, krakenFutureLastValue, krakenSpotLastValue);
+
+        // Calculate spread percentage: (spot - futures) / futures * 100
+        BigDecimal spreadDifference = krakenSpotLastValue.subtract(krakenFutureLastValue);
+        BigDecimal spreadPercent = krakenFutureLastValue.compareTo(BigDecimal.ZERO) > 0
+                ? spreadDifference.divide(krakenFutureLastValue, 6, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100))
+                : BigDecimal.ZERO;
+        BigDecimal spreadPercentAbs = spreadPercent.abs();
+
+        logger.info("[PLACE_ORDER] {} - Spread: {} ({}%), Min required: {}%",
+                instrumentKey, spreadDifference, spreadPercent, minSpreadPercent);
+
+        // GUARD: Check if spread is large enough to cover fees and be profitable
+        if (spreadPercentAbs.compareTo(BigDecimal.valueOf(minSpreadPercent)) < 0) {
+            String msg = "Spread too small (" + spreadPercent + "%) - must be at least " + minSpreadPercent +
+                    "% to cover fees (~0.5% round-trip). Skipping trade.";
+            logger.warn("[PLACE_ORDER] {} - {}", instrumentKey, msg);
+            return new OrderResult(false, msg);
+        }
+
+        logger.info("[PLACE_ORDER] {} - Spread check passed ({}% >= {}%). Proceeding with trade.",
+                instrumentKey, spreadPercentAbs, minSpreadPercent);
 
         BigDecimal profitLimitPricePredicted = getProfitLimitPrice(instrument);
         logger.info("[PLACE_ORDER] {} - Predicted profit limit price: {}", instrumentKey, profitLimitPricePredicted);

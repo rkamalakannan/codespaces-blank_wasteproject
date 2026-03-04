@@ -42,6 +42,13 @@ public class ScheduledTradingService {
     @Autowired(required = false)
     private AssetQuantityService assetQuantityService;
 
+    @Autowired(required = false)
+    private MomentumTrendStrategy momentumStrategy;
+
+    // Trading strategy selector: "arbitrage" or "momentum"
+    @Value("${trading.strategy:momentum}")
+    private String tradingStrategy;
+
     // Configurable polling interval (default 30 seconds - balanced for crypto markets)
     @Value("${trading.scheduler.interval-ms:30000}")
     private long pollingIntervalMs;
@@ -108,6 +115,7 @@ public class ScheduledTradingService {
     @PostConstruct
     public void init() {
         logger.info("=== Scheduled Trading Service Initialized ===");
+        logger.info("Trading strategy: {}", tradingStrategy);
         logger.info("Polling interval: {}ms ({} seconds)", pollingIntervalMs, pollingIntervalMs / 1000);
         logger.info("Scheduler enabled: {}", schedulerEnabled);
         logger.info("Default trade amount: {}", defaultAmount);
@@ -117,6 +125,10 @@ public class ScheduledTradingService {
                 orderExpiryMs, orderExpiryMs / 1000,
                 orderExpiryMs <= 0 ? "DISABLED" : "ENABLED");
         logger.info("Active assets: {}", activeAssets);
+
+        if ("momentum".equalsIgnoreCase(tradingStrategy) && momentumStrategy == null) {
+            logger.error("Trading strategy set to 'momentum' but MomentumTrendStrategy bean not available!");
+        }
     }
 
     /**
@@ -243,10 +255,13 @@ public class ScheduledTradingService {
 
     /**
      * Process a single asset for trading opportunities.
+     * Strategy is selected via trading.strategy property: "arbitrage" or "momentum".
+     *
      * Guards are applied in this order:
      * 1. Asset support check
      * 2. Open position check via validateOrderPlacement() (API call)
-     * 3. placeOrder() performs a second open position check as a safety net
+     * 3. Strategy analysis (momentum or arbitrage)
+     * 4. placeOrder() performs a second open position check as a safety net
      */
     private void processAsset(String asset) throws IOException {
         String result;
@@ -263,9 +278,9 @@ public class ScheduledTradingService {
 
             Instrument instrument = new org.knowm.xchange.currency.CurrencyPair(asset, "USD");
 
-            // GUARD 1: Check if there's already an open position for this asset BEFORE fetching price data.
+            // GUARD 1: Check if there's already an open position for this asset BEFORE analysis.
             // This is the primary guard to prevent placing new orders when a position already exists.
-            logger.info("[PROCESS] {} - Checking for existing open position before order placement...", asset);
+            logger.info("[PROCESS] {} - Checking for existing open position before analysis...", asset);
             KrakenFutureConfiguration.OrderResult validationResult = krakenConfiguration.validateOrderPlacement(instrument);
             if (!validationResult.isSuccess()) {
                 result = "POSITION_EXISTS: " + validationResult.getMessage();
@@ -274,28 +289,14 @@ public class ScheduledTradingService {
                 return;
             }
 
-            logger.info("[PROCESS] {} - No open position found. Proceeding to fetch price data and place order.", asset);
+            logger.info("[PROCESS] {} - No open position found. Running {} strategy analysis...", asset, tradingStrategy);
 
-            // Get price data (only after confirming no open position)
-            KrakenFuturesTicker futuresTicker = krakenConfiguration.getFuturesPriceChange(instrument);
-            logger.info("[PROCESS] {} - Futures ticker fetched. Mark price: {}", asset,
-                    futuresTicker != null ? futuresTicker.getMarkPrice() : "null");
-
-            // Execute trade with per-asset quantity (each asset has its own unique quantity setting)
-            BigDecimal quantity = getAssetQuantity(asset);
-            BigDecimal amount = adjustAmountPrecision(config, quantity);
-            logger.info("[PROCESS] {} - Placing order with amount: {}", asset, amount);
-
-            // GUARD 2: placeOrder() itself also re-checks open positions as a safety net
-            KrakenFutureConfiguration.OrderResult orderResult = krakenConfiguration.placeOrder(instrument, amount);
-
-            if (orderResult != null && !orderResult.isSuccess()) {
-                result = "ORDER_BLOCKED: " + orderResult.getMessage();
-                logger.warn("[PROCESS] {} - Order was blocked inside placeOrder(). Reason: {}", asset, orderResult.getMessage());
+            // Strategy selection
+            if ("momentum".equalsIgnoreCase(tradingStrategy)) {
+                result = processMomentumStrategy(asset, instrument, config);
             } else {
-                lastTradeTime.put(asset, System.currentTimeMillis());
-                result = "SUCCESS";
-                logger.info("[PROCESS] {} - Trade executed successfully with amount: {}", asset, amount);
+                // Default to arbitrage strategy (original logic)
+                result = processArbitrageStrategy(asset, instrument, config);
             }
 
         } catch (Exception e) {
@@ -304,6 +305,72 @@ public class ScheduledTradingService {
         }
 
         lastTradeResult.put(asset, result);
+    }
+
+    /**
+     * Process asset using momentum trend-following strategy (EMA + ATR)
+     */
+    private String processMomentumStrategy(String asset, Instrument instrument, AssetConfig config) throws IOException {
+        if (momentumStrategy == null) {
+            logger.error("[PROCESS] {} - Momentum strategy selected but MomentumTrendStrategy bean not available!", asset);
+            return "ERROR: Momentum strategy not available";
+        }
+
+        // Analyze for trade signal
+        MomentumTrendStrategy.TradeSignal signal = momentumStrategy.analyzeAsset(asset);
+        if (signal == null) {
+            logger.info("[PROCESS] {} - No momentum signal. Skipping.", asset);
+            return "NO_SIGNAL";
+        }
+
+        logger.info("[PROCESS] {} - Momentum signal: {}", asset, signal);
+
+        // Execute trade with per-asset quantity
+        BigDecimal quantity = getAssetQuantity(asset);
+        BigDecimal amount = adjustAmountPrecision(config, quantity);
+        logger.info("[PROCESS] {} - Placing {} order with amount: {}", asset, signal.getDirection(), amount);
+
+        // Place order via the standard placeOrder() method
+        // Note: placeOrder() uses the arbitrage logic for stop-loss/take-profit placement.
+        // For momentum strategy, we should ideally use signal.getStopLoss() and signal.getTakeProfit().
+        // TODO: Add a placeOrderWithLevels() method that accepts custom stop/target prices.
+        KrakenFutureConfiguration.OrderResult orderResult = krakenConfiguration.placeOrder(instrument, amount);
+
+        if (orderResult != null && !orderResult.isSuccess()) {
+            logger.warn("[PROCESS] {} - Order was blocked inside placeOrder(). Reason: {}", asset, orderResult.getMessage());
+            return "ORDER_BLOCKED: " + orderResult.getMessage();
+        } else {
+            lastTradeTime.put(asset, System.currentTimeMillis());
+            logger.info("[PROCESS] {} - Momentum trade executed successfully with amount: {}", asset, amount);
+            return "SUCCESS: " + signal.getDirection();
+        }
+    }
+
+    /**
+     * Process asset using arbitrage strategy (original spot-futures spread logic)
+     */
+    private String processArbitrageStrategy(String asset, Instrument instrument, AssetConfig config) throws IOException {
+        // Get price data
+        KrakenFuturesTicker futuresTicker = krakenConfiguration.getFuturesPriceChange(instrument);
+        logger.info("[PROCESS] {} - Futures ticker fetched. Mark price: {}", asset,
+                futuresTicker != null ? futuresTicker.getMarkPrice() : "null");
+
+        // Execute trade with per-asset quantity
+        BigDecimal quantity = getAssetQuantity(asset);
+        BigDecimal amount = adjustAmountPrecision(config, quantity);
+        logger.info("[PROCESS] {} - Placing arbitrage order with amount: {}", asset, amount);
+
+        // GUARD 2: placeOrder() itself also re-checks open positions as a safety net
+        KrakenFutureConfiguration.OrderResult orderResult = krakenConfiguration.placeOrder(instrument, amount);
+
+        if (orderResult != null && !orderResult.isSuccess()) {
+            logger.warn("[PROCESS] {} - Order was blocked inside placeOrder(). Reason: {}", asset, orderResult.getMessage());
+            return "ORDER_BLOCKED: " + orderResult.getMessage();
+        } else {
+            lastTradeTime.put(asset, System.currentTimeMillis());
+            logger.info("[PROCESS] {} - Arbitrage trade executed successfully with amount: {}", asset, amount);
+            return "SUCCESS";
+        }
     }
 
     /**

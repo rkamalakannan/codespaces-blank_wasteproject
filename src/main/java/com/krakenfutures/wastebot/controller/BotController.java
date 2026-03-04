@@ -164,10 +164,12 @@ public class BotController {
     @PostMapping("/ensure-protective-orders")
     @Operation(summary = "Ensure protective orders",
             description = "Check all open positions and place missing stop-loss or take-profit orders. " +
-                    "Every open position must have both a stop-loss and a take-profit order.")
+                    "Every open position must have both a stop-loss and a take-profit order. " +
+                    "No cooldown is applied for manual triggers.")
     public Map<String, Object> ensureProtectiveOrders() throws IOException {
-        logger.info("[MANUAL_PROTECT] Manually triggering protective orders check...");
-        int placed = krakenConfiguration.ensureProtectiveOrders();
+        logger.info("[MANUAL_PROTECT] Manually triggering protective orders check (no cooldown)...");
+        // Pass empty set to skip no assets (manual trigger bypasses cooldown)
+        int placed = krakenConfiguration.ensureProtectiveOrders(java.util.Collections.emptySet());
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("placedCount", placed);
         result.put("message", placed > 0

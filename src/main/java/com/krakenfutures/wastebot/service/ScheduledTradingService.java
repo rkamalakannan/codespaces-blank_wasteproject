@@ -73,6 +73,12 @@ public class ScheduledTradingService {
     // Minimum time between trades for same asset (milliseconds)
     private static final long MIN_TRADE_INTERVAL_MS = 60000; // 1 minute
 
+    // Cooldown after a trade before ensureProtectiveOrders() checks that asset.
+    // This prevents duplicate stop-loss/take-profit placement when the exchange
+    // hasn't yet confirmed the orders placed by placeOrder().
+    // Default: 2 minutes (120000ms) - gives exchange time to confirm orders.
+    private static final long PROTECTIVE_ORDER_COOLDOWN_MS = 120000; // 2 minutes
+
     // Supported assets with decimal precision for amounts.
     // amountPrecision: number of decimal places supported for order quantities.
     // Set high enough to support small amounts like 0.0002 (needs at least 4 decimal places).
@@ -115,23 +121,39 @@ public class ScheduledTradingService {
 
     /**
      * Scheduled task to ensure every open position has both a stop-loss and a take-profit order.
-     * Runs at the same interval as the main trading cycle.
-     * If a protective order is missing, it is automatically placed.
+     * Runs at a LONGER interval than the main trading cycle (5x the polling interval, min 2.5 minutes).
+     * This gives the exchange time to confirm orders placed by placeOrder() before we check for them.
+     *
+     * Additionally, assets that were recently traded are skipped for PROTECTIVE_ORDER_COOLDOWN_MS
+     * to prevent duplicate stop-loss/take-profit placement.
      */
-    @Scheduled(fixedDelayString = "${trading.scheduler.interval-ms:30000}")
+    @Scheduled(fixedDelayString = "${trading.protective-orders.interval-ms:150000}")
     public void ensureProtectiveOrders() {
         if (!schedulerEnabled || isPaused.get()) {
             logger.debug("[PROTECT_TASK] Scheduler paused or disabled, skipping protective orders check.");
             return;
         }
 
+        long now = System.currentTimeMillis();
+
+        // Check which assets are in cooldown (recently traded) - skip them to avoid duplicates
+        java.util.Set<String> recentlyTradedAssets = lastTradeTime.entrySet().stream()
+                .filter(e -> (now - e.getValue()) < PROTECTIVE_ORDER_COOLDOWN_MS)
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toSet());
+
+        if (!recentlyTradedAssets.isEmpty()) {
+            logger.info("[PROTECT_TASK] Skipping protective orders check for recently traded assets (cooldown {}ms): {}",
+                    PROTECTIVE_ORDER_COOLDOWN_MS, recentlyTradedAssets);
+        }
+
         logger.info("[PROTECT_TASK] Running protective orders check (stop-loss + take-profit for all open positions)...");
         try {
-            int placed = krakenConfiguration.ensureProtectiveOrders();
+            int placed = krakenConfiguration.ensureProtectiveOrders(recentlyTradedAssets);
             if (placed > 0) {
                 logger.info("[PROTECT_TASK] Placed {} missing protective order(s).", placed);
             } else {
-                logger.info("[PROTECT_TASK] All open positions already have protective orders.");
+                logger.info("[PROTECT_TASK] All open positions already have protective orders (or in cooldown).");
             }
         } catch (Exception e) {
             logger.error("[PROTECT_TASK] Error during protective orders check: {}", e.getMessage(), e);

@@ -820,19 +820,13 @@ public class KrakenFutureConfiguration {
 
     /**
      * Ensure every open position has both a stop-loss and a take-profit protective order.
+     * Overload that accepts a set of recently-traded assets to skip (cooldown period).
      *
-     * For each open position:
-     * - Checks existing hidden/trigger orders for a matching STOP_LOSS and TAKE_PROFIT
-     * - If stop-loss is missing, places one at position entry price ± 0.1%
-     * - If take-profit is missing, places one at the predicted profit limit price
-     *
-     * Direction logic:
-     * - LONG position: stop-loss = BID below entry, take-profit = ASK above entry
-     * - SHORT position: stop-loss = ASK above entry, take-profit = BID below entry
-     *
+     * @param skipAssets set of asset keys (e.g. "BTC") to skip because they were recently traded.
+     *                   Pass an empty set to check all positions.
      * @return number of protective orders placed
      */
-    public int ensureProtectiveOrders() throws IOException {
+    public int ensureProtectiveOrders(java.util.Set<String> skipAssets) throws IOException {
         List<OpenPosition> openPositions = getPositions();
         if (openPositions.isEmpty()) {
             logger.info("[PROTECT] No open positions found. Nothing to protect.");
@@ -862,6 +856,12 @@ public class KrakenFutureConfiguration {
 
         for (OpenPosition position : openPositions) {
             String instrumentKey = position.getInstrument().getBase().getCurrencyCode();
+
+            // Skip assets in cooldown (recently traded) to avoid duplicate protective orders
+            if (skipAssets != null && skipAssets.contains(instrumentKey)) {
+                logger.info("[PROTECT] {} - Skipping (in cooldown after recent trade). Protective orders will be checked next cycle.", instrumentKey);
+                continue;
+            }
             Instrument instrument = position.getInstrument();
             boolean isLong = position.getType() == OpenPosition.Type.LONG;
             BigDecimal entryPrice = position.getPrice();

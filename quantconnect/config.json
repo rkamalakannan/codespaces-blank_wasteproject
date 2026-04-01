@@ -1,0 +1,16 @@
+{
+    "algorithm-id": "CombinedArbitrageMomentumAlgorithm",
+    "algorithm-language": "Python",
+    "algorithm-location": "main.py",
+    "description": "Combined spot-futures arbitrage + EMA momentum strategy for crypto perpetuals. Mirrors the Java Kraken bot combined strategy.",
+    "parameters": {
+        "MIN_SPREAD_PCT": 0.5,
+        "EMA_PERIOD": 20,
+        "ATR_PERIOD": 14,
+        "ATR_STOP_MULT": 2.0,
+        "RISK_REWARD": 2.0,
+        "POSITION_SIZE_PCT": 0.05,
+        "MAX_POSITIONS": 3,
+        "COOLDOWN_HOURS": 1
+    }
+}

@@ -101,7 +101,7 @@ public class MomentumTrendStrategy {
         if (currentAboveEMA && !previousAboveEMA) {
             BigDecimal stopLoss = currentPrice.subtract(atr.multiply(BigDecimal.valueOf(atrStopMultiplier)));
             BigDecimal riskAmount = currentPrice.subtract(stopLoss);
-            BigDecimal takeProfit = currentPrice.plus().add(riskAmount.multiply(BigDecimal.valueOf(riskRewardRatio)));
+            BigDecimal takeProfit = currentPrice.add(riskAmount.multiply(BigDecimal.valueOf(riskRewardRatio)));
 
             logger.info("[STRATEGY] {} - LONG SIGNAL: price crossed above EMA. Entry: {}, Stop: {}, Target: {}",
                     asset, currentPrice, stopLoss, takeProfit);
@@ -111,7 +111,7 @@ public class MomentumTrendStrategy {
 
         // SHORT signal: price crosses below EMA (bearish crossover)
         if (!currentAboveEMA && previousAboveEMA) {
-            BigDecimal stopLoss = currentPrice.plus().add(atr.multiply(BigDecimal.valueOf(atrStopMultiplier)));
+            BigDecimal stopLoss = currentPrice.add(atr.multiply(BigDecimal.valueOf(atrStopMultiplier)));
             BigDecimal riskAmount = stopLoss.subtract(currentPrice);
             BigDecimal takeProfit = currentPrice.subtract(riskAmount.multiply(BigDecimal.valueOf(riskRewardRatio)));
 

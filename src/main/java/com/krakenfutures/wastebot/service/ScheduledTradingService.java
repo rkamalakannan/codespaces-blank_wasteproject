@@ -69,6 +69,10 @@ public class ScheduledTradingService {
     @Value("${trading.order.expiry-ms:300000}")
     private long orderExpiryMs;
 
+    // Minimum spread % for combined strategy arbitrage pre-filter (mirrors KrakenFutureConfiguration)
+    @Value("${trading.min-spread-percent:0.5}")
+    private double minSpreadPercent;
+
     // Track scheduler state
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
     private final AtomicBoolean isPaused = new AtomicBoolean(false);
@@ -345,6 +349,105 @@ public class ScheduledTradingService {
             lastTradeTime.put(asset, System.currentTimeMillis());
             logger.info("[PROCESS] {} - Momentum trade executed successfully with amount: {}", asset, amount);
             return "SUCCESS: " + signal.getDirection();
+        }
+    }
+
+    /**
+     * Process asset using combined strategy: arbitrage signal filtered by momentum (EMA) confirmation.
+     *
+     * Logic:
+     * 1. Fetch spot and futures prices, calculate spread percentage
+     *    - LONG signal if spot > futures by at least minSpreadPercent
+     *    - SHORT signal if futures > spot by at least minSpreadPercent
+     * 2. Run momentum analysis (EMA crossover on OHLC data)
+     * 3. Only trade when BOTH strategies agree on direction
+     *    - Arbitrage LONG + Momentum LONG → place order
+     *    - Arbitrage SHORT + Momentum SHORT → place order
+     *    - Conflict or either has no signal → skip
+     */
+    private String processCombinedStrategy(String asset, Instrument instrument, AssetConfig config) throws IOException {
+        if (momentumStrategy == null) {
+            logger.error("[PROCESS] {} - Combined strategy selected but MomentumTrendStrategy bean not available!", asset);
+            return "ERROR: Momentum strategy not available for combined mode";
+        }
+
+        // --- Step 1: Determine arbitrage direction from spot/futures spread ---
+        org.knowm.xchange.krakenfutures.dto.marketData.KrakenFuturesTicker futuresTicker =
+                krakenConfiguration.getFuturesPriceChange(instrument);
+        org.knowm.xchange.kraken.dto.marketdata.KrakenTicker spotTicker =
+                krakenConfiguration.getSpotPriceChange(instrument);
+
+        if (futuresTicker == null || spotTicker == null) {
+            logger.warn("[PROCESS] {} - Unable to fetch price data for combined strategy. Skipping.", asset);
+            return "NO_DATA";
+        }
+
+        java.math.BigDecimal futuresPrice = futuresTicker.getMarkPrice();
+        java.math.BigDecimal spotPrice = spotTicker.getAsk().getPrice();
+        java.math.BigDecimal spreadDiff = spotPrice.subtract(futuresPrice);
+        java.math.BigDecimal spreadPct = futuresPrice.compareTo(java.math.BigDecimal.ZERO) > 0
+                ? spreadDiff.divide(futuresPrice, 6, java.math.RoundingMode.HALF_UP)
+                        .multiply(java.math.BigDecimal.valueOf(100))
+                : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal spreadPctAbs = spreadPct.abs();
+
+        // Minimum spread threshold (same property as pure arbitrage: trading.min-spread-percent)
+        boolean spreadLargeEnough = spreadPctAbs.compareTo(java.math.BigDecimal.valueOf(minSpreadPercent)) >= 0;
+
+        String arbitrageDirection; // "LONG", "SHORT", or "NONE"
+        if (!spreadLargeEnough) {
+            arbitrageDirection = "NONE";
+            logger.info("[COMBINED] {} - Spread too small ({}%, min={}%). No arbitrage signal.", asset, spreadPct, minSpreadPercent);
+        } else if (spreadPct.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            // spot > futures → expect futures to rise → LONG futures
+            arbitrageDirection = "LONG";
+        } else {
+            // futures > spot → expect futures to fall → SHORT futures
+            arbitrageDirection = "SHORT";
+        }
+
+        logger.info("[COMBINED] {} - Spot: {}, Futures: {}, Spread: {}% → Arbitrage signal: {}",
+                asset, spotPrice, futuresPrice, spreadPct, arbitrageDirection);
+
+        if ("NONE".equals(arbitrageDirection)) {
+            return "NO_SIGNAL: Spread too small (" + spreadPct + "%)";
+        }
+
+        // --- Step 2: Confirm with momentum (EMA crossover) ---
+        MomentumTrendStrategy.TradeSignal momentumSignal = momentumStrategy.analyzeAsset(asset);
+        if (momentumSignal == null) {
+            logger.info("[COMBINED] {} - Arbitrage says {} but no momentum signal. Skipping (no confirmation).",
+                    asset, arbitrageDirection);
+            return "NO_SIGNAL: Momentum has no crossover to confirm arbitrage " + arbitrageDirection;
+        }
+
+        String momentumDirection = momentumSignal.getDirection(); // "LONG" or "SHORT"
+        logger.info("[COMBINED] {} - Momentum signal: {}", asset, momentumSignal);
+
+        // --- Step 3: Only trade if both strategies agree ---
+        if (!arbitrageDirection.equals(momentumDirection)) {
+            logger.info("[COMBINED] {} - CONFLICT: Arbitrage={}, Momentum={}. Skipping trade.",
+                    asset, arbitrageDirection, momentumDirection);
+            return "CONFLICT: Arbitrage=" + arbitrageDirection + " vs Momentum=" + momentumDirection;
+        }
+
+        logger.info("[COMBINED] {} - AGREEMENT: Both strategies signal {}. Executing trade.",
+                asset, arbitrageDirection);
+
+        // --- Step 4: Execute the trade ---
+        BigDecimal quantity = getAssetQuantity(asset);
+        BigDecimal amount = adjustAmountPrecision(config, quantity);
+        logger.info("[COMBINED] {} - Placing {} order with amount: {}", asset, arbitrageDirection, amount);
+
+        KrakenFutureConfiguration.OrderResult orderResult = krakenConfiguration.placeOrder(instrument, amount);
+
+        if (orderResult != null && !orderResult.isSuccess()) {
+            logger.warn("[COMBINED] {} - Order was blocked inside placeOrder(). Reason: {}", asset, orderResult.getMessage());
+            return "ORDER_BLOCKED: " + orderResult.getMessage();
+        } else {
+            lastTradeTime.put(asset, System.currentTimeMillis());
+            logger.info("[COMBINED] {} - Combined strategy trade executed successfully: {}", asset, arbitrageDirection);
+            return "SUCCESS: " + arbitrageDirection;
         }
     }
 

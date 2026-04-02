@@ -294,6 +294,12 @@ public class TechnicalIndicatorService {
             List<BigDecimal> histogram
     ) {}
 
+    public static record BollingerBandsResult(
+            List<BigDecimal> upperBand,
+            List<BigDecimal> middleBand,
+            List<BigDecimal> lowerBand
+    ) {}
+
     public static record SignalSummary(
             String asset,
             BigDecimal currentPrice,

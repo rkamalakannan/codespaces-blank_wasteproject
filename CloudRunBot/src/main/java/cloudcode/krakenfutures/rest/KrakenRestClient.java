@@ -37,6 +37,10 @@ public class KrakenRestClient {
             "USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF"
     );
 
+    private static final int MAX_SPOT_ASSETS_TO_MONITOR = 25;
+    private static final double MIN_24H_QUOTE_VOLUME = 250_000.0;
+    private static final double MIN_24H_MOVE_PERCENT = 1.0;
+
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final TradingConfig config;
@@ -58,6 +62,8 @@ public class KrakenRestClient {
      */
     public Map<String, Set<String>> fetchFiatSpotPairs() {
         Map<String, Set<String>> result = new LinkedHashMap<>();
+        Map<String, List<String>> tickerPairsByAsset = new LinkedHashMap<>();
+
         try {
             JsonNode root = getPublic("/0/public/AssetPairs");
             if (root == null || root.has("error") && root.get("error").size() > 0) {
@@ -89,12 +95,16 @@ public class KrakenRestClient {
                 if (!FIAT_QUOTES.contains(quote)) continue;
 
                 result.computeIfAbsent(base, k -> new LinkedHashSet<>()).add(quote);
+                tickerPairsByAsset.computeIfAbsent(base, k -> new ArrayList<>()).add(entry.getKey());
             }
 
             // Only keep assets that have at least 2 fiat quote currencies (needed for arbitrage)
             result.entrySet().removeIf(e -> e.getValue().size() < 2);
+            tickerPairsByAsset.keySet().retainAll(result.keySet());
 
-            log.info("Discovered {} assets with multi-fiat pairs from Kraken API", result.size());
+            result = filterTopVolumeMovingAssets(result, tickerPairsByAsset);
+
+            log.info("Discovered {} high-volume moving assets with multi-fiat pairs from Kraken API", result.size());
             for (Map.Entry<String, Set<String>> e : result.entrySet()) {
                 log.debug("  {} -> {}", e.getKey(), e.getValue());
             }
@@ -103,6 +113,95 @@ public class KrakenRestClient {
             log.error("Error fetching tradable asset pairs", e);
         }
         return result;
+    }
+
+    private Map<String, Set<String>> filterTopVolumeMovingAssets(
+            Map<String, Set<String>> assetQuotes,
+            Map<String, List<String>> tickerPairsByAsset
+    ) {
+        if (assetQuotes.isEmpty() || tickerPairsByAsset.isEmpty()) {
+            return assetQuotes;
+        }
+
+        Map<String, AssetMarketScore> scores = new HashMap<>();
+
+        List<String> allTickerPairs = tickerPairsByAsset.values().stream()
+                .flatMap(List::stream)
+                .distinct()
+                .toList();
+
+        final int batchSize = 50;
+        for (int i = 0; i < allTickerPairs.size(); i += batchSize) {
+            List<String> batch = allTickerPairs.subList(i, Math.min(i + batchSize, allTickerPairs.size()));
+            JsonNode tickerRoot = getPublic("/0/public/Ticker?pair=" + String.join(",", batch));
+
+            if (tickerRoot == null || tickerRoot.has("error") && tickerRoot.get("error").size() > 0) {
+                log.warn("Failed to fetch ticker batch for liquidity filter: {}", tickerRoot);
+                continue;
+            }
+
+            JsonNode tickerResult = tickerRoot.get("result");
+            if (tickerResult == null || !tickerResult.isObject()) {
+                continue;
+            }
+
+            for (Map.Entry<String, List<String>> assetEntry : tickerPairsByAsset.entrySet()) {
+                String asset = assetEntry.getKey();
+
+                for (String pairKey : assetEntry.getValue()) {
+                    JsonNode ticker = tickerResult.get(pairKey);
+                    if (ticker == null) {
+                        continue;
+                    }
+
+                    double last = ticker.path("c").path(0).asDouble(0);
+                    double open = ticker.path("o").asDouble(0);
+                    double volume = ticker.path("v").path(1).asDouble(0);
+                    double vwap = ticker.path("p").path(1).asDouble(last);
+
+                    if (last <= 0 || open <= 0 || volume <= 0 || vwap <= 0) {
+                        continue;
+                    }
+
+                    double quoteVolume = volume * vwap;
+                    double movePercent = Math.abs(last - open) / open * 100.0;
+
+                    scores.computeIfAbsent(asset, ignored -> new AssetMarketScore())
+                            .add(quoteVolume, movePercent);
+                }
+            }
+        }
+
+        Map<String, Set<String>> filtered = scores.entrySet().stream()
+                .filter(e -> assetQuotes.containsKey(e.getKey()))
+                .filter(e -> e.getValue().quoteVolume >= MIN_24H_QUOTE_VOLUME)
+                .filter(e -> e.getValue().maxMovePercent >= MIN_24H_MOVE_PERCENT)
+                .sorted((a, b) -> Double.compare(b.getValue().score(), a.getValue().score()))
+                .limit(MAX_SPOT_ASSETS_TO_MONITOR)
+                .collect(
+                        LinkedHashMap::new,
+                        (map, entry) -> map.put(entry.getKey(), assetQuotes.get(entry.getKey())),
+                        LinkedHashMap::putAll
+                );
+
+        log.info("Liquidity/movement filter kept {} of {} assets. minVolume={}, minMove={}%, maxAssets={}",
+                filtered.size(), assetQuotes.size(), MIN_24H_QUOTE_VOLUME, MIN_24H_MOVE_PERCENT, MAX_SPOT_ASSETS_TO_MONITOR);
+
+        return filtered;
+    }
+
+    private static class AssetMarketScore {
+        private double quoteVolume;
+        private double maxMovePercent;
+
+        private void add(double quoteVolume, double movePercent) {
+            this.quoteVolume += quoteVolume;
+            this.maxMovePercent = Math.max(this.maxMovePercent, movePercent);
+        }
+
+        private double score() {
+            return quoteVolume * Math.max(maxMovePercent, 0.1);
+        }
     }
 
     /**

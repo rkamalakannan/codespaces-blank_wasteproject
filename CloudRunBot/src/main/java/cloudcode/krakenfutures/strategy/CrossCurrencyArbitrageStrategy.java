@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Low-latency cross-currency arbitrage strategy for Kraken Spot.
@@ -40,6 +41,8 @@ public class CrossCurrencyArbitrageStrategy {
     private final BigDecimal minProfitPct;
     private final long maxTickerAgeMs;
     private final long tradeCooldownMs;
+    private final int maxConcurrentTrades;
+    private final AtomicInteger activeTrades = new AtomicInteger(0);
     private final BigDecimal tradeSizeUsd;
 
     private final SpotTickerWebSocketService tickerService;
@@ -68,6 +71,7 @@ public class CrossCurrencyArbitrageStrategy {
         this.minProfitPct = BigDecimal.valueOf(config.getMinProfitPct());
         this.maxTickerAgeMs = config.getMaxTickerAgeMs();
         this.tradeCooldownMs = config.getTradeCooldownMs();
+        this.maxConcurrentTrades = config.getMaxConcurrentTrades();
         this.tradeSizeUsd = BigDecimal.valueOf(config.getTradeSizeUsd());
     }
 
@@ -168,6 +172,12 @@ public class CrossCurrencyArbitrageStrategy {
 
     private void executeArbitrage(String baseAsset, NormalizedQuote buy, NormalizedQuote sell,
                                   ArbitrageOpportunity opp) {
+        // Global concurrent trades check
+        if (activeTrades.get() >= maxConcurrentTrades) {
+            log.debug("Max concurrent trades ({}) reached", maxConcurrentTrades);
+            return;
+        }
+
         // Cooldown check using monotonic nanos
         Long lastNanos = lastTradeNanos.get(baseAsset);
         if (lastNanos != null && (System.nanoTime() - lastNanos) / 1_000_000 < tradeCooldownMs) {
@@ -192,14 +202,26 @@ public class CrossCurrencyArbitrageStrategy {
         log.info("  BUY  {} x {} @ {} | SELL {} @ {}", tradeSize, buySymbol, buy.ticker.ask, sellSymbol, sell.ticker.bid);
         log.info("  Spread: {}% | Net profit: {}%", opp.getSpreadPercent(), opp.getEstimatedProfitPercent());
 
+        activeTrades.incrementAndGet();
         try {
-            orderClient.sendOrder(buySymbol, "buy", tradeSize.doubleValue(), buy.ticker.ask.doubleValue(), "limit");
-            orderClient.sendOrder(sellSymbol, "sell", tradeSize.doubleValue(), sell.ticker.bid.doubleValue(), "limit");
+            // To ensure both legs are placed effectively as requested by user,
+            // we use MARKET orders for both legs to ensure they are executed immediately.
+            // This avoids the issue where one leg (usually sell) might not work effectively
+            // because price may have crossed if limit orders were used.
+
+            log.info("  Placing market orders to ensure execution...");
+            orderClient.sendOrder(buySymbol, "buy", tradeSize.doubleValue(), 0, "market");
+            orderClient.sendOrder(sellSymbol, "sell", tradeSize.doubleValue(), 0, "market");
+
             lastTradeNanos.put(baseAsset, System.nanoTime());
             totalTrades++;
-            log.info("  Orders submitted (total trades: {})", totalTrades);
+            log.info("  Market orders submitted (total trades: {}, active: {})", totalTrades, activeTrades.get());
         } catch (Exception e) {
             log.error("  Order execution failed", e);
+        } finally {
+            // Decrement active trades. In a more complex bot, we would wait for execution
+            // confirmations, but for this lightweight implementation, we decrement after submission.
+            activeTrades.decrementAndGet();
         }
     }
 
@@ -208,8 +230,8 @@ public class CrossCurrencyArbitrageStrategy {
         ConcurrentHashMap<String, ConcurrentHashMap<String, TickerData>> cache = tickerService.getPriceCache();
         int totalPairs = cache.values().stream().mapToInt(Map::size).sum();
 
-        log.info("=== STATS === scans={} | opportunities={} | trades={} | assets={} | pairs={} | fxRates={}",
-                totalScans, totalOpportunities, totalTrades, cache.size(), totalPairs, fxRates.size());
+        log.info("=== STATS === scans={} | opportunities={} | trades={} | active={} | assets={} | pairs={} | fxRates={}",
+                totalScans, totalOpportunities, totalTrades, activeTrades.get(), cache.size(), totalPairs, fxRates.size());
 
         for (Map.Entry<String, BigDecimal> fx : fxRates.entrySet()) {
             if (!"USD".equals(fx.getKey())) {

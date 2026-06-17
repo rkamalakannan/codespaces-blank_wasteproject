@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
  *   MIN_PROFIT_PCT        — minimum net profit % to trigger trade (default 0.10)
  *   MAX_TICKER_AGE_MS     — max ticker staleness in ms (default 3000)
  *   TRADE_COOLDOWN_MS     — per-asset cooldown in ms (default 30000)
+ *   MAX_CONCURRENT_TRADES — maximum number of active trades (default 1)
  */
 public class TradingConfig {
 
@@ -47,6 +48,7 @@ public class TradingConfig {
     private final double minProfitPct;
     private final long maxTickerAgeMs;
     private final long tradeCooldownMs;
+    private final int maxConcurrentTrades;
 
     private TradingConfig(Builder builder) {
         this.spotApiKey = builder.spotApiKey;
@@ -60,6 +62,7 @@ public class TradingConfig {
         this.minProfitPct = builder.minProfitPct;
         this.maxTickerAgeMs = builder.maxTickerAgeMs;
         this.tradeCooldownMs = builder.tradeCooldownMs;
+        this.maxConcurrentTrades = builder.maxConcurrentTrades;
     }
 
     /**
@@ -87,6 +90,7 @@ public class TradingConfig {
         b.minProfitPct = parseDouble(envOrDefault("MIN_PROFIT_PCT", "0.10"), 0.10);
         b.maxTickerAgeMs = parseLong(envOrDefault("MAX_TICKER_AGE_MS", "3000"), 3000);
         b.tradeCooldownMs = parseLong(envOrDefault("TRADE_COOLDOWN_MS", "30000"), 30000);
+        b.maxConcurrentTrades = (int) parseLong(envOrDefault("MAX_CONCURRENT_TRADES", "1"), 1);
 
         TradingConfig config = new TradingConfig(b);
         config.logConfiguration();
@@ -106,6 +110,7 @@ public class TradingConfig {
         log.info("  Min profit:      {}%", minProfitPct);
         log.info("  Max ticker age:  {}ms", maxTickerAgeMs);
         log.info("  Trade cooldown:  {}ms", tradeCooldownMs);
+        log.info("  Max conc trades: {}", maxConcurrentTrades);
         if (tradingMode == TradingMode.PAPER) {
             log.info("  *** PAPER TRADING — no real orders will be placed ***");
         } else {
@@ -129,6 +134,7 @@ public class TradingConfig {
     public double getMinProfitPct() { return minProfitPct; }
     public long getMaxTickerAgeMs() { return maxTickerAgeMs; }
     public long getTradeCooldownMs() { return tradeCooldownMs; }
+    public int getMaxConcurrentTrades() { return maxConcurrentTrades; }
 
     // --- Helpers ---
 
@@ -165,6 +171,7 @@ public class TradingConfig {
         private double minProfitPct = 0.10;
         private long maxTickerAgeMs = 3000;
         private long tradeCooldownMs = 30000;
+        private int maxConcurrentTrades = 1;
 
         public Builder spotApiKey(String k) { this.spotApiKey = k != null ? k : ""; return this; }
         public Builder spotApiSecret(String s) { this.spotApiSecret = s != null ? s : ""; return this; }
@@ -177,6 +184,7 @@ public class TradingConfig {
         public Builder minProfitPct(double p) { this.minProfitPct = p; return this; }
         public Builder maxTickerAgeMs(long ms) { this.maxTickerAgeMs = ms; return this; }
         public Builder tradeCooldownMs(long ms) { this.tradeCooldownMs = ms; return this; }
+        public Builder maxConcurrentTrades(int n) { this.maxConcurrentTrades = n; return this; }
 
         public TradingConfig build() { return new TradingConfig(this); }
     }

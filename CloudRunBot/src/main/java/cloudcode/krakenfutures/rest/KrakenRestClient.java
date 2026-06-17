@@ -335,19 +335,19 @@ public class KrakenRestClient {
     }
 
     /**
-     * Place a futures order via Derivatives REST API.
+     * Place a futures market order via Derivatives REST API.
      * Requires KRAKEN_FUTURES_KEY and KRAKEN_FUTURES_SECRET.
      *
      * @param symbol    product ID (e.g. PF_XBTUSD)
      * @param side      "buy" or "sell"
      * @param size      order size
-     * @param price     limit price (null for market orders)
-     * @param orderType "lmt" or "mkt"
+     * @param price     ignored — all futures orders are forced to market
+     * @param orderType ignored — all futures orders are forced to market
      * @return true if order was accepted
      */
     public boolean placeFuturesOrder(String symbol, String side, double size, Double price, String orderType) {
         if (config.isPaperTrading()) {
-            log.info("[PAPER] Futures order: {} {} x{} @ {} ({})", side, symbol, size, price, orderType);
+            log.info("[PAPER] Futures market order: {} {} x{}", side, symbol, size);
             return true;
         }
 
@@ -357,15 +357,13 @@ public class KrakenRestClient {
         }
 
         try {
-            String postData = String.format("orderType=%s&symbol=%s&side=%s&size=%.8f",
-                    orderType, symbol, side, size);
-            if (price != null && "lmt".equals(orderType)) {
-                postData += String.format("&limitPrice=%.8f", price);
-            }
+            // Force all Futures orders to market orders.
+            String postData = String.format("orderType=mkt&symbol=%s&side=%s&size=%.8f",
+                    symbol, side, size);
 
             JsonNode response = postFuturesAuthenticated("/sendorder", postData);
             if (response != null && "success".equals(response.path("result").asText())) {
-                log.info("Futures order placed: {} {} x{} @ {}", side, symbol, size, price);
+                log.info("Futures market order placed: {} {} x{}", side, symbol, size);
                 return true;
             } else {
                 log.error("Futures order failed: {}", response);

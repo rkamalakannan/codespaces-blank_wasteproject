@@ -149,7 +149,7 @@ public class KrakenWebSocketClient {
     }
 
     /**
-     * Send a limit order via WebSocket v2.
+     * Send a market order via WebSocket v2.
      * In PAPER mode, logs the order but does not send it.
      * Uses pre-formatted JSON for minimum latency.
      */
@@ -158,19 +158,11 @@ public class KrakenWebSocketClient {
             throw new IllegalStateException("Cannot send private order without Kraken WebSocket auth token");
         }
 
-        // Kraken v2 add_order format
-        String payload;
-        if ("market".equals(orderType)) {
-            payload = String.format(
-                    "{\"method\":\"add_order\",\"params\":{\"token\":\"%s\",\"order_type\":\"market\",\"side\":\"%s\",\"symbol\":\"%s\",\"order_qty\":%.8f}}",
-                    wsToken, side, symbol, size
-            );
-        } else {
-            payload = String.format(
-                    "{\"method\":\"add_order\",\"params\":{\"token\":\"%s\",\"order_type\":\"%s\",\"side\":\"%s\",\"symbol\":\"%s\",\"order_qty\":%.8f,\"limit_price\":%.8f}}",
-                    wsToken, orderType, side, symbol, size, price
-            );
-        }
+        // Force all Spot orders to market orders.
+        String payload = String.format(
+                "{\"method\":\"add_order\",\"params\":{\"token\":\"%s\",\"order_type\":\"market\",\"side\":\"%s\",\"symbol\":\"%s\",\"order_qty\":%.8f}}",
+                wsToken, side, symbol, size
+        );
 
         if (config.isPaperTrading()) {
             paperOrderCount++;

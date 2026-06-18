@@ -2,14 +2,19 @@ package cloudcode.krakenfutures.websocket;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import cloudcode.krakenfutures.config.TradingConfig;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.net.Socket;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
@@ -24,14 +29,17 @@ import java.util.function.Consumer;
  * bid, ask, last, volume, funding rate, mark price, open interest.
  */
 public class FuturesTickerService {
-
     private static final Logger log = LoggerFactory.getLogger(FuturesTickerService.class);
-
-    private static final String KRAKEN_FUTURES_WS_URL = "wss://futures.kraken.com/ws/v1";
+    private final String futuresWsUrl;
     private static final int PING_INTERVAL_SECONDS = 25;
     private static final int RECONNECT_DELAY_SECONDS = 3;
 
     private final ObjectMapper objectMapper;
+    private final TradingConfig config;
+
+    // Challenge-response auth state
+    private volatile String originalChallenge;
+    private volatile String signedChallenge;
 
     // Price cache: productId -> FuturesTickerData
     private final ConcurrentHashMap<String, FuturesTickerData> priceCache = new ConcurrentHashMap<>(32);
@@ -54,8 +62,12 @@ public class FuturesTickerService {
     });
     private ScheduledFuture<?> pingTask;
 
-    public FuturesTickerService(ObjectMapper objectMapper) {
+    public FuturesTickerService(ObjectMapper objectMapper, TradingConfig config) {
         this.objectMapper = objectMapper;
+        this.config = config;
+        this.futuresWsUrl = config.isPaperTrading()
+                ? "wss://demo-futures.kraken.com/ws/v1"
+                : "wss://futures.kraken.com/ws/v1";
     }
 
     /** Set product IDs to subscribe to (e.g. "PF_XBTUSD", "PF_ETHUSD"). Call before start(). */
@@ -72,7 +84,7 @@ public class FuturesTickerService {
     }
 
     private void connectAndSubscribe() {
-        URI uri = URI.create(KRAKEN_FUTURES_WS_URL);
+        URI uri = URI.create(futuresWsUrl);
         log.info("Connecting to Kraken Futures WebSocket: {}", uri);
 
         wsClient = new WebSocketClient(uri) {
@@ -80,10 +92,14 @@ public class FuturesTickerService {
             public void onOpen(ServerHandshake handshake) {
                 connected = true;
                 lastMessageNanos = System.nanoTime();
-                log.info("Connected to Kraken Futures WS. Subscribing to {} products...", subscriptionProducts.size());
+                log.info("FUTURES_WS_CONNECTED url={}", futuresWsUrl);
+                log.info("FUTURES_WS_HANDSHAKE status={} message={} headers={}",
+                        handshake.getHttpStatus(),
+                        handshake.getHttpStatusMessage(),
+                        handshake.iterateHttpFields());
 
                 enableTcpNoDelay();
-                subscribeToProducts();
+                requestChallenge();
 
                 // Ping keepalive
                 if (pingTask != null) pingTask.cancel(false);
@@ -101,20 +117,28 @@ public class FuturesTickerService {
             @Override
             public void onMessage(String message) {
                 lastMessageNanos = System.nanoTime();
+
+                if (message.contains("\"event\":\"error\"")
+                        || message.contains("\"event\":\"challenge\"")
+                        || message.contains("\"error\"")
+                        || message.contains("\"success\":false")) {
+                    log.warn("FUTURES_WS_AUTH_OR_ERROR_RAW {}", redactSensitive(message));
+                }
+
                 handleMessage(message);
             }
 
             @Override
             public void onClose(int code, String reason, boolean remote) {
                 connected = false;
-                log.warn("Futures WS closed (code={}, reason={}). Reconnecting in {}s...",
-                        code, reason, RECONNECT_DELAY_SECONDS);
+                log.warn("FUTURES_WS_CLOSED code={} reason={} remote={} url={}",
+                        code, reason, remote, futuresWsUrl);
                 scheduleReconnect();
             }
 
             @Override
             public void onError(Exception ex) {
-                log.error("Futures WS error", ex);
+                log.error("FUTURES_WS_ERROR type={} reason={}", ex.getClass().getName(), ex.getMessage(), ex);
                 connected = false;
                 scheduleReconnect();
             }
@@ -141,6 +165,26 @@ public class FuturesTickerService {
         scheduler.schedule(this::connectAndSubscribe, RECONNECT_DELAY_SECONDS, TimeUnit.SECONDS);
     }
 
+    private void requestChallenge() {
+        try {
+            if (config.getFuturesApiKey() == null || config.getFuturesApiKey().isBlank()) {
+                log.error("FUTURES_WS_AUTH_SKIPPED reason=missing_KRAKEN_FUTURES_KEY");
+                subscribeToProducts();
+                return;
+            }
+
+            var msg = objectMapper.createObjectNode();
+            msg.put("event", "challenge");
+            msg.put("api_key", config.getFuturesApiKey());
+
+            String payload = objectMapper.writeValueAsString(msg);
+            log.info("FUTURES_WS_CHALLENGE_SENT payload={}", redactSensitive(payload));
+            wsClient.send(payload);
+        } catch (Exception e) {
+            log.error("FUTURES_WS_CHALLENGE_SEND_FAILED reason={}", e.getMessage(), e);
+        }
+    }
+
     private void subscribeToProducts() {
         try {
             // Kraken Futures WS v1 subscribe format
@@ -153,11 +197,21 @@ public class FuturesTickerService {
             }
             msg.set("product_ids", products);
 
+            // Include challenge if available
+            if (originalChallenge != null && signedChallenge != null) {
+                msg.put("api_key", config.getFuturesApiKey());
+                msg.put("original_challenge", originalChallenge);
+                msg.put("signed_challenge", signedChallenge);
+            }
+
             String payload = objectMapper.writeValueAsString(msg);
-            log.info("Subscribing to futures ticker: {} products", subscriptionProducts.size());
+            log.info("FUTURES_WS_SUBSCRIBE_SENT products={} authIncluded={} payload={}",
+                    subscriptionProducts.size(),
+                    originalChallenge != null && signedChallenge != null,
+                    redactSensitive(payload));
             wsClient.send(payload);
         } catch (Exception e) {
-            log.error("Failed to subscribe to futures ticker", e);
+            log.error("FUTURES_WS_SUBSCRIBE_FAILED reason={}", e.getMessage(), e);
         }
     }
 
@@ -174,19 +228,88 @@ public class FuturesTickerService {
                 }
             } else if (node.has("event")) {
                 String event = node.get("event").asText();
-                if ("subscribed".equals(event)) {
-                    log.info("Futures subscribed: feed={}, products={}",
+                if ("challenge".equals(event)) {
+                    handleChallenge(node);
+                } else if ("subscribed".equals(event)) {
+                    log.info("FUTURES_WS_SUBSCRIBED feed={} products={}",
                             node.has("feed") ? node.get("feed").asText() : "?",
                             node.has("product_ids") ? node.get("product_ids") : "?");
                 } else if ("error".equals(event)) {
-                    log.error("Futures WS error: {}", node.has("message") ? node.get("message").asText() : message);
+                    log.error("FUTURES_WS_ERROR_EVENT message={} raw={}",
+                            node.has("message") ? node.get("message").asText() : "?",
+                            redactSensitive(message));
+                } else if ("info".equals(event) || "pong".equals(event)) {
+                    // quiet
+                } else {
+                    log.warn("FUTURES_WS_UNKNOWN_EVENT event={} raw={}", event, redactSensitive(message));
                 }
-                // "info" and "pong" events — no action needed
+            } else {
+                log.warn("FUTURES_WS_UNKNOWN_MESSAGE raw={}", redactSensitive(message));
             }
         } catch (Exception e) {
-            log.error("Failed to parse futures message: {}",
-                    message.length() > 200 ? message.substring(0, 200) : message, e);
+            log.error("FUTURES_WS_PARSE_FAILED reason={} raw={}",
+                    e.getMessage(),
+                    redactSensitive(message),
+                    e);
         }
+    }
+
+    private void handleChallenge(JsonNode node) {
+        log.info("FUTURES_WS_CHALLENGE_RESPONSE raw={}", redactSensitive(node.toString()));
+
+        String challenge = node.path("message").asText();
+        if (challenge != null && !challenge.isEmpty()) {
+            log.info("FUTURES_WS_CHALLENGE_RECEIVED length={}", challenge.length());
+            this.originalChallenge = challenge;
+            this.signedChallenge = signChallenge(challenge);
+            if (signedChallenge != null) {
+                log.info("FUTURES_WS_CHALLENGE_SIGNED signedLength={}", signedChallenge.length());
+                subscribeToProducts();
+            } else {
+                log.error("FUTURES_WS_CHALLENGE_SIGN_FAILED reason=signedChallenge_is_null");
+            }
+        } else {
+            log.error("FUTURES_WS_CHALLENGE_INVALID raw={}", redactSensitive(node.toString()));
+        }
+    }
+
+    private String signChallenge(String challenge) {
+        try {
+            if (config.getFuturesApiSecret() == null || config.getFuturesApiSecret().isBlank()) {
+                log.error("FUTURES_WS_CHALLENGE_SIGN_FAILED reason=missing_KRAKEN_FUTURES_SECRET");
+                return null;
+            }
+
+            // 1. SHA-256 hash of challenge
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] hash = sha256.digest(challenge.getBytes(StandardCharsets.UTF_8));
+
+            // 2. Base64-decode secret
+            byte[] secretBytes = Base64.getDecoder().decode(config.getFuturesApiSecret());
+
+            // 3. HMAC-SHA-512 of hash using secret
+            Mac hmac = Mac.getInstance("HmacSHA512");
+            hmac.init(new SecretKeySpec(secretBytes, "HmacSHA512"));
+            byte[] signed = hmac.doFinal(hash);
+
+            // 4. Base64-encode result
+            return Base64.getEncoder().encodeToString(signed);
+        } catch (IllegalArgumentException e) {
+            log.error("FUTURES_WS_CHALLENGE_SIGN_FAILED reason=futures_secret_is_not_valid_base64");
+            return null;
+        } catch (Exception e) {
+            log.error("FUTURES_WS_CHALLENGE_SIGN_FAILED reason={}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private static String redactSensitive(String text) {
+        if (text == null) {
+            return null;
+        }
+        return text
+                .replaceAll("(\"api_key\"\\s*:\\s*\")[^\"]+(\")", "$1***REDACTED***$2")
+                .replaceAll("(\"signed_challenge\"\\s*:\\s*\")[^\"]+(\")", "$1***REDACTED***$2");
     }
 
     private void processTickerUpdate(JsonNode data) {

@@ -9,6 +9,7 @@ import cloudcode.krakenfutures.config.TradingConfig;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -31,7 +32,7 @@ public class KrakenRestClient {
 
     private static final Logger log = LoggerFactory.getLogger(KrakenRestClient.class);
     private static final String SPOT_BASE_URL = "https://api.kraken.com";
-    private static final String FUTURES_BASE_URL = "https://futures.kraken.com/derivatives/api/v3";
+    private final String futuresBaseUrl;
 
     private static final Set<String> FIAT_QUOTES = Set.of(
             "USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF"
@@ -55,6 +56,9 @@ public class KrakenRestClient {
                 .build();
         this.objectMapper = objectMapper;
         this.config = config;
+        this.futuresBaseUrl = config.isPaperTrading() 
+                ? "https://demo-futures.kraken.com/derivatives/api/v3" 
+                : "https://futures.kraken.com/derivatives/api/v3";
     }
 
     /**
@@ -299,6 +303,86 @@ public class KrakenRestClient {
         }
     }
 
+    /**
+     * Get all spot account balances.
+     * Returns a map of asset -> balance.
+     */
+    public Map<String, BigDecimal> getSpotBalances() {
+        Map<String, BigDecimal> balances = new HashMap<>();
+
+        if (config.isPaperTrading()) {
+            return balances;
+        }
+
+        if (config.getSpotApiKey().isEmpty() || config.getSpotApiSecret().isEmpty()) {
+            log.warn("BALANCE_CHECK_FAILED reason=missing_spot_api_credentials");
+            return balances;
+        }
+
+        try {
+            String endpoint = "/0/private/Balance";
+            String nonce = String.valueOf(System.currentTimeMillis());
+            String postData = "nonce=" + nonce;
+            String signature = signSpotRequest(endpoint, nonce, postData);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SPOT_BASE_URL + endpoint))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("API-Key", config.getSpotApiKey())
+                    .header("API-Sign", signature)
+                    .POST(HttpRequest.BodyPublishers.ofString(postData))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            JsonNode root = objectMapper.readTree(response.body());
+
+            if (root.has("error") && root.get("error").isArray() && root.get("error").size() > 0) {
+                log.warn("BALANCE_CHECK_FAILED reason={}", root.get("error"));
+                return balances;
+            }
+
+            JsonNode result = root.get("result");
+            if (result == null || !result.isObject()) {
+                return balances;
+            }
+
+            Iterator<Map.Entry<String, JsonNode>> fields = result.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = fields.next();
+                balances.put(normalizeBalanceAsset(entry.getKey()), new BigDecimal(entry.getValue().asText("0")));
+            }
+        } catch (Exception e) {
+            log.warn("BALANCE_CHECK_FAILED reason={}", e.getMessage());
+        }
+
+        return balances;
+    }
+
+    public BigDecimal getSpotBalance(String asset) {
+        Map<String, BigDecimal> balances = getSpotBalances();
+        return balances.getOrDefault(normalizeBalanceAsset(asset), BigDecimal.ZERO);
+    }
+
+    private static String normalizeBalanceAsset(String asset) {
+        String upper = asset.toUpperCase();
+        return switch (upper) {
+            case "XBT", "XXBT", "ZXXBT" -> "BTC";
+            case "XETH", "ZETH" -> "ETH";
+            case "XXRP", "ZXRP" -> "XRP";
+            case "XLTC", "ZLTC" -> "LTC";
+            case "ZEUR" -> "EUR";
+            case "ZUSD" -> "USD";
+            case "ZGBP" -> "GBP";
+            case "ZCAD" -> "CAD";
+            case "ZAUD" -> "AUD";
+            case "ZJPY" -> "JPY";
+            case "ZCHF" -> "CHF";
+            default -> upper.startsWith("X") && upper.length() > 3 ? upper.substring(1) : upper;
+        };
+    }
+
     // ===== Futures REST API =====
 
     /**
@@ -346,8 +430,25 @@ public class KrakenRestClient {
      * @return true if order was accepted
      */
     public boolean placeFuturesOrder(String symbol, String side, double size, Double price, String orderType) {
+        return placeFuturesOrder(symbol, side, size, price, orderType, null, null);
+    }
+
+    /**
+     * Place a futures market order via Derivatives REST API.
+     * Supports optional Stop Loss and Take Profit trigger prices.
+     *
+     * @param symbol        product ID (e.g. PF_XBTUSD)
+     * @param side          "buy" or "sell"
+     * @param size          order size
+     * @param price         limit price (if orderType is "lmt")
+     * @param orderType     "mkt", "lmt", etc.
+     * @param stopLossPrice optional trigger price for stop loss
+     * @param takeProfitPrice optional trigger price for take profit
+     * @return true if order was accepted
+     */
+    public boolean placeFuturesOrder(String symbol, String side, double size, Double price, String orderType, Double stopLossPrice, Double takeProfitPrice) {
         if (config.isPaperTrading()) {
-            log.info("[PAPER] Futures market order: {} {} x{}", side, symbol, size);
+            log.info("[PAPER] Futures order: {} {} x{} type={} sl={} tp={}", side, symbol, size, orderType, stopLossPrice, takeProfitPrice);
             return true;
         }
 
@@ -357,13 +458,28 @@ public class KrakenRestClient {
         }
 
         try {
-            // Force all Futures orders to market orders.
-            String postData = String.format("orderType=mkt&symbol=%s&side=%s&size=%.8f",
-                    symbol, side, size);
+            String nonce = String.valueOf(System.currentTimeMillis());
+            StringBuilder postData = new StringBuilder();
+            postData.append("orderType=").append(orderType);
+            postData.append("&symbol=").append(symbol);
+            postData.append("&side=").append(side);
+            postData.append(String.format("&size=%.8f", size));
+            postData.append("&nonce=").append(nonce);
 
-            JsonNode response = postFuturesAuthenticated("/sendorder", postData);
+            if ("lmt".equals(orderType) && price != null) {
+                postData.append("&limitPrice=").append(price);
+            }
+
+            if (stopLossPrice != null) {
+                postData.append("&stopLossPrice=").append(stopLossPrice);
+            }
+            if (takeProfitPrice != null) {
+                postData.append("&takeProfitPrice=").append(takeProfitPrice);
+            }
+
+            JsonNode response = postFuturesAuthenticated("/sendorder", postData.toString(), nonce);
             if (response != null && "success".equals(response.path("result").asText())) {
-                log.info("Futures market order placed: {} {} x{}", side, symbol, size);
+                log.info("Futures order placed: {} {} x{} (sl={}, tp={})", side, symbol, size, stopLossPrice, takeProfitPrice);
                 return true;
             } else {
                 log.error("Futures order failed: {}", response);
@@ -385,8 +501,9 @@ public class KrakenRestClient {
         }
 
         try {
-            String postData = "order_id=" + orderId;
-            JsonNode response = postFuturesAuthenticated("/cancelorder", postData);
+            String nonce = String.valueOf(System.currentTimeMillis());
+            String postData = "order_id=" + orderId + "&nonce=" + nonce;
+            JsonNode response = postFuturesAuthenticated("/cancelorder", postData, nonce);
             return response != null && "success".equals(response.path("result").asText());
         } catch (Exception e) {
             log.error("Futures cancel error", e);
@@ -426,7 +543,7 @@ public class KrakenRestClient {
     public JsonNode getFuturesPublic(String endpoint) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(FUTURES_BASE_URL + endpoint))
+                    .uri(URI.create(futuresBaseUrl + endpoint))
                     .timeout(Duration.ofSeconds(15))
                     .header("Accept", "application/json")
                     .GET()
@@ -450,7 +567,7 @@ public class KrakenRestClient {
             String authent = signFuturesRequest(endpoint, nonce, "");
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(FUTURES_BASE_URL + endpoint + "?" + nonce))
+                    .uri(URI.create(futuresBaseUrl + endpoint + "?" + nonce))
                     .timeout(Duration.ofSeconds(15))
                     .header("Accept", "application/json")
                     .header("APIKey", config.getFuturesApiKey())
@@ -469,12 +586,12 @@ public class KrakenRestClient {
     /**
      * Authenticated POST for Futures API.
      */
-    private JsonNode postFuturesAuthenticated(String endpoint, String postData) {
+    private JsonNode postFuturesAuthenticated(String endpoint, String postData, String nonce) {
         try {
-            String authent = signFuturesRequest(endpoint, "", postData);
+            String authent = signFuturesRequest(endpoint, nonce, postData);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(FUTURES_BASE_URL + endpoint))
+                    .uri(URI.create(futuresBaseUrl + endpoint))
                     .timeout(Duration.ofSeconds(15))
                     .header("Accept", "application/json")
                     .header("Content-Type", "application/x-www-form-urlencoded")

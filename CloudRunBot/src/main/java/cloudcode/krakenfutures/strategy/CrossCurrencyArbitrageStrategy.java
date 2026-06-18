@@ -76,19 +76,16 @@ public class CrossCurrencyArbitrageStrategy {
     }
 
     public void start() {
-        log.info("=== Cross-Currency Arbitrage Strategy ===");
-        log.info("  Mode: {}", config.isPaperTrading() ? "PAPER" : "LIVE");
-        log.info("  Min profit: {}% (after {}% round-trip fees)", minProfitPct, ROUND_TRIP_FEE_PCT);
-        log.info("  Max ticker age: {}ms | Cooldown: {}ms | Trade size: ${}", maxTickerAgeMs, tradeCooldownMs, tradeSizeUsd);
+        log.info("STRATEGY_STARTED mode={} minProfitPct={} tradeSizeUsd={}",
+                config.isPaperTrading() ? "PAPER" : "LIVE",
+                minProfitPct,
+                tradeSizeUsd);
 
         // Event-driven: scan only the asset that just received a tick
         tickerService.addTickListener(this::scanAsset);
 
-        // Periodic full scan as fallback (catches opportunities between ticks)
+        // Periodic full scan as fallback
         scheduler.scheduleWithFixedDelay(this::scanAll, 5, 2, TimeUnit.SECONDS);
-
-        // Stats logging
-        scheduler.scheduleWithFixedDelay(this::logStats, 30, 30, TimeUnit.SECONDS);
     }
 
     /** Scan a single asset (called on every tick — hot path) */
@@ -160,7 +157,14 @@ public class CrossCurrencyArbitrageStrategy {
                     spreadPct, netProfitPct
             );
 
-            log.info(">>> ARBITRAGE: {}", opp);
+            log.info("ARBITRAGE_FOUND asset={} buy={}/{} sell={}/{} spreadPct={} netProfitPct={}",
+                    baseAsset,
+                    baseAsset,
+                    cheapestAsk.quote,
+                    baseAsset,
+                    highestBid.quote,
+                    spreadPct,
+                    netProfitPct);
             recentOpportunities.add(opp);
             if (recentOpportunities.size() > MAX_RECENT_OPPORTUNITIES) {
                 recentOpportunities.subList(0, recentOpportunities.size() - MAX_RECENT_OPPORTUNITIES).clear();
@@ -171,22 +175,20 @@ public class CrossCurrencyArbitrageStrategy {
     }
 
     private void executeArbitrage(String baseAsset, NormalizedQuote buy, NormalizedQuote sell,
-                                  ArbitrageOpportunity opp) {
+                                   ArbitrageOpportunity opp) {
         // Global concurrent trades check
         if (activeTrades.get() >= maxConcurrentTrades) {
-            log.debug("Max concurrent trades ({}) reached", maxConcurrentTrades);
             return;
         }
 
         // Cooldown check using monotonic nanos
         Long lastNanos = lastTradeNanos.get(baseAsset);
         if (lastNanos != null && (System.nanoTime() - lastNanos) / 1_000_000 < tradeCooldownMs) {
-            log.debug("Cooldown active for {}", baseAsset);
             return;
         }
 
         if (!config.isPaperTrading() && !orderClient.isConnected()) {
-            log.warn("Cannot execute — order WebSocket not connected");
+            log.warn("TRADE_SKIPPED reason=order_websocket_not_connected asset={}", baseAsset);
             return;
         }
 
@@ -198,50 +200,25 @@ public class CrossCurrencyArbitrageStrategy {
         // Dynamic trade size based on config
         BigDecimal tradeSize = tradeSizeUsd.divide(buy.normAsk, 8, RoundingMode.DOWN);
 
-        log.info("=== EXECUTING ARBITRAGE ===");
-        log.info("  BUY  {} x {} @ {} | SELL {} @ {}", tradeSize, buySymbol, buy.ticker.ask, sellSymbol, sell.ticker.bid);
-        log.info("  Spread: {}% | Net profit: {}%", opp.getSpreadPercent(), opp.getEstimatedProfitPercent());
-
         activeTrades.incrementAndGet();
         try {
-            // To ensure both legs are placed effectively as requested by user,
-            // we use MARKET orders for both legs to ensure they are executed immediately.
-            // This avoids the issue where one leg (usually sell) might not work effectively
-            // because price may have crossed if limit orders were used.
+            log.info("BUY_SELL_START asset={} buySymbol={} sellSymbol={} size={} expectedProfitPct={}",
+                    baseAsset, buySymbol, sellSymbol, tradeSize, opp.getEstimatedProfitPercent());
 
-            log.info("  Placing market orders to ensure execution...");
             orderClient.sendOrder(buySymbol, "buy", tradeSize.doubleValue(), 0, "market");
             orderClient.sendOrder(sellSymbol, "sell", tradeSize.doubleValue(), 0, "market");
 
             lastTradeNanos.put(baseAsset, System.nanoTime());
             totalTrades++;
-            log.info("  Market orders submitted (total trades: {}, active: {})", totalTrades, activeTrades.get());
         } catch (Exception e) {
-            log.error("  Order execution failed", e);
+            log.warn("TRADE_FAILED asset={} reason={}", baseAsset, e.getMessage());
         } finally {
-            // Decrement active trades. In a more complex bot, we would wait for execution
-            // confirmations, but for this lightweight implementation, we decrement after submission.
             activeTrades.decrementAndGet();
         }
     }
 
     private void logStats() {
-        ConcurrentHashMap<String, BigDecimal> fxRates = tickerService.getFxRatesToUsd();
-        ConcurrentHashMap<String, ConcurrentHashMap<String, TickerData>> cache = tickerService.getPriceCache();
-        int totalPairs = cache.values().stream().mapToInt(Map::size).sum();
-
-        log.info("=== STATS === scans={} | opportunities={} | trades={} | active={} | assets={} | pairs={} | fxRates={}",
-                totalScans, totalOpportunities, totalTrades, activeTrades.get(), cache.size(), totalPairs, fxRates.size());
-
-        for (Map.Entry<String, BigDecimal> fx : fxRates.entrySet()) {
-            if (!"USD".equals(fx.getKey())) {
-                log.info("  FX {}/USD = {}", fx.getKey(), fx.getValue().setScale(6, RoundingMode.HALF_UP));
-            }
-        }
-
-        if (!recentOpportunities.isEmpty()) {
-            log.info("  Latest: {}", recentOpportunities.get(recentOpportunities.size() - 1));
-        }
+        // Intentionally quiet. Order logs only.
     }
 
     public List<ArbitrageOpportunity> getRecentOpportunities() {

@@ -1,24 +1,21 @@
 <configuration>
-    <!-- Async appender for non-blocking log writes (low-latency) -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{30} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
         </encoder>
-        <immediateFlush>false</immediateFlush>
     </appender>
 
-    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="STDOUT"/>
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <neverBlock>true</neverBlock>
-    </appender>
-
-    <logger name="cloudcode.krakenfutures" level="INFO"/>
-    <logger name="cloudcode.krakenfutures.websocket" level="INFO"/>
+    <logger name="cloudcode.krakenfutures.websocket.SpotTickerWebSocketService" level="WARN"/>
+    <logger name="cloudcode.krakenfutures.websocket.FuturesTickerService" level="INFO"/>
+    <logger name="cloudcode.krakenfutures.rest.KrakenRestClient" level="WARN"/>
     <logger name="org.java_websocket" level="WARN"/>
 
+    <logger name="cloudcode.krakenfutures.strategy.CrossCurrencyArbitrageStrategy" level="INFO"/>
+    <logger name="cloudcode.krakenfutures.strategy.SpotFuturesArbitrageStrategy" level="INFO"/>
+    <logger name="cloudcode.krakenfutures.websocket.KrakenWebSocketClient" level="INFO"/>
+    <logger name="cloudcode.krakenfutures.CloudRunBotApplication" level="INFO"/>
+
     <root level="WARN">
-        <appender-ref ref="ASYNC"/>
+        <appender-ref ref="STDOUT"/>
     </root>
 </configuration>

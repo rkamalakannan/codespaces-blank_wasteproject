@@ -1,7 +1,6 @@
 package com.krakenfutures.wastebot.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.krakenfutures.wastebot.agent.client.AnthropicClient;
 import com.krakenfutures.wastebot.agent.client.FuturesOrderWebSocket;
 import com.krakenfutures.wastebot.agent.client.MarketDataService;
 import com.krakenfutures.wastebot.agent.client.OrderWebSocketService;
@@ -22,7 +21,6 @@ public class TradingOrchestrator {
     private static final Logger log = LoggerFactory.getLogger(TradingOrchestrator.class);
 
     private final ObjectMapper objectMapper;
-    private final AnthropicClient anthropicClient;
     private final MarketDataService marketDataService;
     private final OrderWebSocketService orderWebSocketService;
     private final FuturesOrderWebSocket futuresOrderWebSocket;
@@ -67,16 +65,15 @@ public class TradingOrchestrator {
         this.isFuturesBot = isFuturesBot;
         this.balance = initialBalance;
 
-        this.anthropicClient = new AnthropicClient(objectMapper);
         this.marketDataService = new MarketDataService(objectMapper);
         this.orderWebSocketService = new OrderWebSocketService(objectMapper, apiKey, apiSecret, paperMode);
         this.futuresOrderWebSocket = new FuturesOrderWebSocket(objectMapper, apiKey, apiSecret, paperMode);
 
-        this.chartAnalysisAgent = new ChartAnalysisAgent(objectMapper, anthropicClient);
+        this.chartAnalysisAgent = new ChartAnalysisAgent();
         this.futuresSignalAgent = new FuturesSignalAgent(objectMapper);
         this.spotSignalAgent = new SpotSignalAgent(objectMapper);
         this.riskManagerAgent = new RiskManagerAgent(objectMapper);
-        this.performanceAnalyzerAgent = new PerformanceAnalyzerAgent(objectMapper, anthropicClient);
+        this.performanceAnalyzerAgent = new PerformanceAnalyzerAgent();
 
         // Initialize state
         this.riskManagerAgent.setInitialBalance(initialBalance);

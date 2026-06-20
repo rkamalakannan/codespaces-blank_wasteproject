@@ -27,6 +27,9 @@ import org.slf4j.LoggerFactory;
  *   MIN_TOP_OF_BOOK_USD   — min top-of-book USD liquidity (bid_qty*bid, default 25)
  *   MAX_VWAP_DEVIATION_PCT — max |last-vwap|/vwap % before flagging a quote (default 5.0)
  *   MAX_CHANGE_PCT_24H    — max |24h change_pct| allowed before skipping (default 25.0)
+ *   MAX_MONITORED_ASSETS  — max number of assets to monitor via WebSocket (default 0 = all)
+ *   MIN_24H_VOLUME_USD    — min 24h quote volume USD to include an asset (default 0 = no filter)
+ *   MIN_24H_MOVE_PCT      — min 24h price move % to include an asset (default 0 = no filter)
  *   TAKER_FEE_PCT         — Kraken Spot taker fee % (default 0.40 — Pro $0+ tier)
  *   MAKER_FEE_PCT         — Kraken Spot maker fee % (default 0.25 — Pro $0+ tier)
  *   FEE_VOLUME_USD_30D    — 30-day volume tier for fee lookup (default 0 — Pro base)
@@ -60,6 +63,9 @@ public class TradingConfig {
     private final double minTopOfBookUsd;
     private final double maxVwapDeviationPct;
     private final double maxChangePct24h;
+    private final int maxMonitoredAssets;
+    private final double min24hVolumeUsd;
+    private final double min24hMovePct;
     private final double takerFeePct;
     private final double makerFeePct;
     private final double feeVolumeUsd30d;
@@ -81,6 +87,9 @@ public class TradingConfig {
         this.minTopOfBookUsd = builder.minTopOfBookUsd;
         this.maxVwapDeviationPct = builder.maxVwapDeviationPct;
         this.maxChangePct24h = builder.maxChangePct24h;
+        this.maxMonitoredAssets = builder.maxMonitoredAssets;
+        this.min24hVolumeUsd = builder.min24hVolumeUsd;
+        this.min24hMovePct = builder.min24hMovePct;
         this.takerFeePct = builder.takerFeePct;
         this.makerFeePct = builder.makerFeePct;
         this.feeVolumeUsd30d = builder.feeVolumeUsd30d;
@@ -119,6 +128,11 @@ public class TradingConfig {
         b.maxVwapDeviationPct = parseDouble(envOrDefault("MAX_VWAP_DEVIATION_PCT", "5.0"), 5.0);
         b.maxChangePct24h = parseDouble(envOrDefault("MAX_CHANGE_PCT_24H", "25.0"), 25.0);
 
+        // Asset scanning limits — 0 means "no limit / scan all"
+        b.maxMonitoredAssets = (int) parseLong(envOrDefault("MAX_MONITORED_ASSETS", "0"), 0);
+        b.min24hVolumeUsd = parseDouble(envOrDefault("MIN_24H_VOLUME_USD", "0"), 0);
+        b.min24hMovePct = parseDouble(envOrDefault("MIN_24H_MOVE_PCT", "0"), 0);
+
         // Kraken Pro Spot fee schedule (maker-taker, volume-based)
         // Defaults: Pro base tier ($0+ volume) — Maker 0.25%, Taker 0.40%
         b.takerFeePct = parseDouble(envOrDefault("TAKER_FEE_PCT", "0.40"), 0.40);
@@ -148,6 +162,9 @@ public class TradingConfig {
         log.info("  Min top-of-book: ${} USD (v2 filter)", minTopOfBookUsd);
         log.info("  Max vwap dev:    {}% (v2 filter)", maxVwapDeviationPct);
         log.info("  Max 24h change:  {}% (v2 filter)", maxChangePct24h);
+        log.info("  Max monitored:   {} assets (0=all)", maxMonitoredAssets);
+        log.info("  Min 24h volume:  ${} USD (0=no filter)", min24hVolumeUsd);
+        log.info("  Min 24h move:    {}% (0=no filter)", min24hMovePct);
         log.info("  Taker fee:       {}% (Kraken Pro Spot)", takerFeePct);
         log.info("  Maker fee:       {}% (Kraken Pro Spot)", makerFeePct);
         log.info("  30d fee volume:  ${} (fee tier)", feeVolumeUsd30d);
@@ -179,6 +196,9 @@ public class TradingConfig {
     public double getMinTopOfBookUsd() { return minTopOfBookUsd; }
     public double getMaxVwapDeviationPct() { return maxVwapDeviationPct; }
     public double getMaxChangePct24h() { return maxChangePct24h; }
+    public int getMaxMonitoredAssets() { return maxMonitoredAssets; }
+    public double getMin24hVolumeUsd() { return min24hVolumeUsd; }
+    public double getMin24hMovePct() { return min24hMovePct; }
     public double getTakerFeePct() { return takerFeePct; }
     public double getMakerFeePct() { return makerFeePct; }
     public double getFeeVolumeUsd30d() { return feeVolumeUsd30d; }
@@ -223,6 +243,9 @@ public class TradingConfig {
         private double minTopOfBookUsd = 25;
         private double maxVwapDeviationPct = 5.0;
         private double maxChangePct24h = 25.0;
+        private int maxMonitoredAssets = 0;       // 0 = all
+        private double min24hVolumeUsd = 0;        // 0 = no filter
+        private double min24hMovePct = 0;           // 0 = no filter
         private double takerFeePct = 0.40;
         private double makerFeePct = 0.25;
         private double feeVolumeUsd30d = 0;
@@ -243,6 +266,9 @@ public class TradingConfig {
         public Builder minTopOfBookUsd(double u) { this.minTopOfBookUsd = u; return this; }
         public Builder maxVwapDeviationPct(double p) { this.maxVwapDeviationPct = p; return this; }
         public Builder maxChangePct24h(double p) { this.maxChangePct24h = p; return this; }
+        public Builder maxMonitoredAssets(int n) { this.maxMonitoredAssets = n; return this; }
+        public Builder min24hVolumeUsd(double v) { this.min24hVolumeUsd = v; return this; }
+        public Builder min24hMovePct(double p) { this.min24hMovePct = p; return this; }
         public Builder takerFeePct(double f) { this.takerFeePct = f; return this; }
         public Builder makerFeePct(double f) { this.makerFeePct = f; return this; }
         public Builder feeVolumeUsd30d(double v) { this.feeVolumeUsd30d = v; return this; }

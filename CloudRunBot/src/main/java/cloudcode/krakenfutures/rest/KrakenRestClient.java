@@ -38,10 +38,6 @@ public class KrakenRestClient {
             "USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF"
     );
 
-    private static final int MAX_SPOT_ASSETS_TO_MONITOR = 25;
-    private static final double MIN_24H_QUOTE_VOLUME = 250_000.0;
-    private static final double MIN_24H_MOVE_PERCENT = 1.0;
-
     private static final Set<String> EXCLUDED_SPOT_ASSETS = Set.of(
             "GWEI"
     );
@@ -185,13 +181,28 @@ public class KrakenRestClient {
             }
         }
 
-        Map<String, Set<String>> filtered = scores.entrySet().stream()
+        int maxAssets = config.getMaxMonitoredAssets();
+        double minVolume = config.getMin24hVolumeUsd();
+        double minMove = config.getMin24hMovePct();
+
+        var stream = scores.entrySet().stream()
                 .filter(e -> assetQuotes.containsKey(e.getKey()))
-                .filter(e -> !EXCLUDED_SPOT_ASSETS.contains(e.getKey()))
-                .filter(e -> e.getValue().quoteVolume >= MIN_24H_QUOTE_VOLUME)
-                .filter(e -> e.getValue().maxMovePercent >= MIN_24H_MOVE_PERCENT)
-                .sorted((a, b) -> Double.compare(b.getValue().score(), a.getValue().score()))
-                .limit(MAX_SPOT_ASSETS_TO_MONITOR)
+                .filter(e -> !EXCLUDED_SPOT_ASSETS.contains(e.getKey()));
+
+        if (minVolume > 0) {
+            stream = stream.filter(e -> e.getValue().quoteVolume >= minVolume);
+        }
+        if (minMove > 0) {
+            stream = stream.filter(e -> e.getValue().maxMovePercent >= minMove);
+        }
+
+        stream = stream.sorted((a, b) -> Double.compare(b.getValue().score(), a.getValue().score()));
+
+        if (maxAssets > 0) {
+            stream = stream.limit(maxAssets);
+        }
+
+        Map<String, Set<String>> filtered = stream
                 .collect(
                         LinkedHashMap::new,
                         (map, entry) -> map.put(entry.getKey(), assetQuotes.get(entry.getKey())),
@@ -199,8 +210,8 @@ public class KrakenRestClient {
                 );
 
         log.info("Liquidity/movement filter kept {} of {} assets. minVolume={}, minMove={}%, maxAssets={}, excluded={}",
-                filtered.size(), assetQuotes.size(), MIN_24H_QUOTE_VOLUME, MIN_24H_MOVE_PERCENT,
-                MAX_SPOT_ASSETS_TO_MONITOR, EXCLUDED_SPOT_ASSETS);
+                filtered.size(), assetQuotes.size(), minVolume, minMove,
+                maxAssets, EXCLUDED_SPOT_ASSETS);
 
         return filtered;
     }

@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.Socket;
 import java.net.URI;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -134,21 +134,9 @@ public class KrakenWebSocketClient {
                                 log.warn("ORDER_FAILED side={} symbol={} size={} req_id={} reason={}",
                                         pending.side, pending.symbol, pending.size, reqId, reason);
 
-                                if ("sell".equals(pending.side) && pending.retryCount < pending.maxRetries) {
-                                    int nextRetry = pending.retryCount + 1;
-                                    log.warn("SELL_RETRY_SCHEDULED symbol={} size={} retry={}/{} reason={}",
-                                            pending.symbol, pending.size, nextRetry, pending.maxRetries, reason);
-                                    scheduler.schedule(() -> sendMarketOrder(
-                                                    pending.symbol,
-                                                    pending.side,
-                                                    pending.size,
-                                                    nextRetry,
-                                                    pending.maxRetries
-                                            ),
-                                            750L * nextRetry,
-                                            TimeUnit.MILLISECONDS
-                                    );
-                                }
+                                // Limit-order retries intentionally omitted: a proper retry
+                                // needs a fresh limit price pulled from the latest ticker.
+                                // The strategy's per-asset cooldown handles back-pressure.
                             }
                         } else if ("cancel_order".equals(method) || "cancel_all".equals(method) || "batch_add".equals(method)) {
                             boolean success = node.has("success") && node.get("success").asBoolean();
@@ -202,31 +190,59 @@ public class KrakenWebSocketClient {
     }
 
     /**
-     * Send a market order via WebSocket v2.
-     * In PAPER mode, logs the order but does not send it.
+     * Send a batch of limit orders in a single WebSocket v2 batch_add request.
+     * This is preferred for cross-currency arbitrage because the buy and sell
+     * legs are submitted atomically in one request, reducing latency and
+     * execution skew.
+     *
+     * NOTE: Market orders are intentionally not supported by this client to
+     * prevent slippage and ensure deterministic execution prices.
      */
-    public void sendOrder(String symbol, String side, double size, double price, String orderType) {
-        sendMarketOrder(symbol, side, size, 0, "sell".equals(side) ? 3 : 0);
-    }
+    public void sendBatchOrder(List<OrderRequest> orders) {
+        if (orders == null || orders.isEmpty()) return;
 
-    private void sendMarketOrder(String symbol, String side, double size, int retryCount, int maxRetries) {
         if (wsToken == null || wsToken.isBlank()) {
             throw new IllegalStateException("Cannot send private order without Kraken WebSocket auth token");
         }
 
         long reqId = requestId.getAndIncrement();
 
-        String payload = String.format(
-                "{\"method\":\"add_order\",\"req_id\":%d,\"params\":{\"token\":\"%s\",\"order_type\":\"market\",\"side\":\"%s\",\"symbol\":\"%s\",\"order_qty\":%.8f}}",
-                reqId, wsToken, side, symbol, size
-        );
+        StringBuilder payload = new StringBuilder();
+        payload.append("{\"method\":\"batch_add\",\"req_id\":")
+                .append(reqId)
+                .append(",\"params\":{\"token\":\"")
+                .append(wsToken)
+                .append("\",\"orders\":[");
+
+        for (int i = 0; i < orders.size(); i++) {
+            OrderRequest order = orders.get(i);
+            if (i > 0) payload.append(',');
+            payload.append("{\"order_type\":\"")
+                    .append(order.orderType)
+                    .append("\",\"side\":\"")
+                    .append(order.side)
+                    .append("\",\"symbol\":\"")
+                    .append(order.symbol)
+                    .append("\",\"order_qty\":")
+                    .append(String.format(java.util.Locale.US, "%.8f", order.size));
+
+            if (order.price != null) {
+                payload.append(",\"price\":")
+                        .append(String.format(java.util.Locale.US, "%.8f", order.price));
+            }
+
+            payload.append('}');
+        }
+
+        payload.append("]}}");
 
         if (config.isPaperTrading()) {
-            paperOrderCount++;
-            log.info("ORDER_SUBMITTED mode=PAPER side={} symbol={} size={} req_id={} retry={}/{}",
-                    side, symbol, size, reqId, retryCount, maxRetries);
-            log.info("ORDER_OK mode=PAPER side={} symbol={} size={} req_id={}",
-                    side, symbol, size, reqId);
+            paperOrderCount += orders.size();
+            for (OrderRequest order : orders) {
+                log.info("BATCH_ORDER_SUBMITTED mode=PAPER side={} symbol={} size={} req_id={}",
+                        order.side, order.symbol, order.size, reqId);
+            }
+            log.info("BATCH_ORDER_OK mode=PAPER req_id={} orders={}", reqId, orders.size());
             return;
         }
 
@@ -234,10 +250,12 @@ public class KrakenWebSocketClient {
             throw new IllegalStateException("Order WebSocket not connected");
         }
 
-        pendingOrders.put(reqId, new PendingOrder(symbol, side, size, retryCount, maxRetries));
-        log.info("ORDER_SUBMITTED side={} symbol={} size={} req_id={} retry={}/{}",
-                side, symbol, size, reqId, retryCount, maxRetries);
-        wsClient.send(payload);
+        for (OrderRequest order : orders) {
+            pendingOrders.put(reqId, new PendingOrder(order.symbol, order.side, order.size));
+        }
+        log.info("BATCH_ORDER_SUBMITTED req_id={} orders={} raw={}",
+                reqId, orders.size(), redactSensitive(payload.toString()));
+        wsClient.send(payload.toString());
     }
 
     private static String extractError(JsonNode node) {
@@ -286,15 +304,35 @@ public class KrakenWebSocketClient {
         final String symbol;
         final String side;
         final double size;
-        final int retryCount;
-        final int maxRetries;
 
-        PendingOrder(String symbol, String side, double size, int retryCount, int maxRetries) {
+        PendingOrder(String symbol, String side, double size) {
             this.symbol = symbol;
             this.side = side;
             this.size = size;
-            this.retryCount = retryCount;
-            this.maxRetries = maxRetries;
+        }
+    }
+
+    public static final class OrderRequest {
+        public final String symbol;
+        public final String side;
+        public final double size;
+        public final Double price;
+        public final String orderType;
+
+        public OrderRequest(String symbol, String side, double size) {
+            this(symbol, side, size, null, "limit");
+        }
+
+        public OrderRequest(String symbol, String side, double size, double price) {
+            this(symbol, side, size, price, "limit");
+        }
+
+        public OrderRequest(String symbol, String side, double size, Double price, String orderType) {
+            this.symbol = symbol;
+            this.side = side;
+            this.size = size;
+            this.price = price;
+            this.orderType = orderType;
         }
     }
 

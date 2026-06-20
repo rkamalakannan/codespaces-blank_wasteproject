@@ -3,7 +3,6 @@ package cloudcode.krakenfutures;
 import cloudcode.krakenfutures.config.TradingConfig;
 import cloudcode.krakenfutures.rest.KrakenRestClient;
 import cloudcode.krakenfutures.strategy.CrossCurrencyArbitrageStrategy;
-import cloudcode.krakenfutures.strategy.SpotFuturesArbitrageStrategy;
 import cloudcode.krakenfutures.websocket.FuturesTickerService;
 import cloudcode.krakenfutures.websocket.KrakenWebSocketClient;
 import cloudcode.krakenfutures.websocket.SpotTickerWebSocketService;
@@ -60,7 +59,7 @@ public class CloudRunBotApplication {
         // Components to track for shutdown
         SpotTickerWebSocketService spotTickerService = null;
         CrossCurrencyArbitrageStrategy spotStrategy = null;
-        SpotFuturesArbitrageStrategy spotFuturesStrategy = null;
+//        SpotFuturesArbitrageStrategy spotFuturesStrategy = null;
         FuturesTickerService futuresTickerService = null;
 
         // ===== SPOT MARKET =====
@@ -100,43 +99,43 @@ public class CloudRunBotApplication {
         }
 
         // ===== FUTURES MARKET =====
-        if (config.isFuturesEnabled()) {
-            log.info("--- Initializing Futures Market ---");
-
-            List<String> futuresInstruments = restClient.fetchFuturesInstruments();
-
-            if (futuresInstruments.isEmpty()) {
-                log.warn("No tradable futures instruments found.");
-            } else {
-                log.info("Found {} tradeable futures instruments", futuresInstruments.size());
-
-                // Futures ticker WebSocket
-                futuresTickerService = new FuturesTickerService(objectMapper, config);
-                futuresTickerService.setSubscriptionProducts(futuresInstruments);
-                futuresTickerService.start();
-
-                // Log futures ticker updates (strategy hooks can be added here)
-                final FuturesTickerService ftService = futuresTickerService;
-                futuresTickerService.addTickListener(productId -> {
-                    var ticker = ftService.getTicker(productId);
-                    if (ticker != null) {
-                        log.debug("Futures tick: {}", ticker);
-                    }
-                });
-
-                log.info("Futures: streaming {} instruments", futuresInstruments.size());
-
-               // Spot-Futures basis strategy (requires both enabled)
-               if (config.isSpotEnabled() && spotTickerService != null) {
-                   log.info("SPOT_FUTURES_STRATEGY_INIT orderClient={}; restClient={}; futuresOrderWebSocket={}",
-                           orderClient != null, restClient != null, false);
-                   spotFuturesStrategy = new SpotFuturesArbitrageStrategy(spotTickerService, futuresTickerService, restClient, config);
-                   spotFuturesStrategy.start();
-               }
-            }
-        } else {
-            log.info("Futures market disabled (ENABLE_FUTURES=false)");
-        }
+//        if (config.isFuturesEnabled()) {
+//            log.info("--- Initializing Futures Market ---");
+//
+//            List<String> futuresInstruments = restClient.fetchFuturesInstruments();
+//
+//            if (futuresInstruments.isEmpty()) {
+//                log.warn("No tradable futures instruments found.");
+//            } else {
+//                log.info("Found {} tradeable futures instruments", futuresInstruments.size());
+//
+//                // Futures ticker WebSocket
+//                futuresTickerService = new FuturesTickerService(objectMapper, config);
+//                futuresTickerService.setSubscriptionProducts(futuresInstruments);
+//                futuresTickerService.start();
+//
+//                // Log futures ticker updates (strategy hooks can be added here)
+//                final FuturesTickerService ftService = futuresTickerService;
+//                futuresTickerService.addTickListener(productId -> {
+//                    var ticker = ftService.getTicker(productId);
+//                    if (ticker != null) {
+//                        log.debug("Futures tick: {}", ticker);
+//                    }
+//                });
+//
+//                log.info("Futures: streaming {} instruments", futuresInstruments.size());
+//
+//               // Spot-Futures basis strategy (requires both enabled)
+//               if (config.isSpotEnabled() && spotTickerService != null) {
+//                   log.info("SPOT_FUTURES_STRATEGY_INIT orderClient={}; restClient={}; futuresOrderWebSocket={}",
+//                           orderClient != null, restClient != null, false);
+//                   spotFuturesStrategy = new SpotFuturesArbitrageStrategy(spotTickerService, futuresTickerService, restClient, config);
+//                   spotFuturesStrategy.start();
+//               }
+//            }
+//        } else {
+//            log.info("Futures market disabled (ENABLE_FUTURES=false)");
+//        }
 
         log.info("=== Kraken Trading Bot Running ({}) ===",
                 config.isPaperTrading() ? "PAPER MODE" : "LIVE MODE");
@@ -145,13 +144,13 @@ public class CloudRunBotApplication {
         // Shutdown hook — capture final references
         final SpotTickerWebSocketService finalSpotTicker = spotTickerService;
         final CrossCurrencyArbitrageStrategy finalSpotStrategy = spotStrategy;
-        final SpotFuturesArbitrageStrategy finalSpotFuturesStrategy = spotFuturesStrategy;
+//        final SpotFuturesArbitrageStrategy finalSpotFuturesStrategy = spotFuturesStrategy;
         final FuturesTickerService finalFuturesTicker = futuresTickerService;
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down...");
             if (finalSpotStrategy != null) finalSpotStrategy.shutdown();
-            if (finalSpotFuturesStrategy != null) finalSpotFuturesStrategy.shutdown();
+//            if (finalSpotFuturesStrategy != null) finalSpotFuturesStrategy.shutdown();
             if (finalSpotTicker != null) finalSpotTicker.shutdown();
             if (finalFuturesTicker != null) finalFuturesTicker.shutdown();
             orderClient.disconnect();

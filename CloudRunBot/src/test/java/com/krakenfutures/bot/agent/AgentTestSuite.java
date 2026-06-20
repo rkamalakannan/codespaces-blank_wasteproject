@@ -1,10 +1,10 @@
-package com.krakenfutures.wastebot.agent;
+package com.krakenfutures.bot.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.krakenfutures.wastebot.agent.model.MomentumRank;
-import com.krakenfutures.wastebot.agent.model.RiskDecision;
-import com.krakenfutures.wastebot.agent.model.Signal;
-import com.krakenfutures.wastebot.agent.util.IndicatorCalculator.Candle;
+import com.krakenfutures.bot.agent.model.MomentumRank;
+import com.krakenfutures.bot.agent.model.RiskDecision;
+import com.krakenfutures.bot.agent.model.Signal;
+import com.krakenfutures.bot.agent.util.IndicatorCalculator.Candle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +62,7 @@ public class AgentTestSuite {
         Signal signal = new Signal(
             Signal.SIGNAL_LONG, Signal.ACTION_ENTER, 80, 30000.0,
             29500.0, 30500.0, 31000.0, 0.0, 1, 1.5, 100.0,
-            "MNQ", "Test", "Log", com.krakenfutures.wastebot.agent.model.IndicatorSnapshot.empty(),
+            "MNQ", "Test", "Log", com.krakenfutures.bot.agent.model.IndicatorSnapshot.empty(),
             true, true
         );
 
@@ -73,7 +73,7 @@ public class AgentTestSuite {
         Signal hugeRisk = new Signal(
             Signal.SIGNAL_LONG, Signal.ACTION_ENTER, 80, 30000.0,
             25000.0, 31000.0, 32000.0, 0.0, 5, 1.5, 100.0,
-            "MNQ", "Test", "Log", com.krakenfutures.wastebot.agent.model.IndicatorSnapshot.empty(),
+            "MNQ", "Test", "Log", com.krakenfutures.bot.agent.model.IndicatorSnapshot.empty(),
             true, true
         );
         RiskDecision rejected = riskManager.validate(hugeRisk, balance, 0);

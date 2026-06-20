@@ -1,4 +1,4 @@
-package com.krakenfutures.wastebot.strategy;
+package com.krakenfutures.bot.strategy;
 
 import java.util.ArrayList;
 import java.util.List;

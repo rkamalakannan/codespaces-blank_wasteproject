@@ -1,4 +1,4 @@
-package com.krakenfutures.wastebot.agent.util;
+package com.krakenfutures.bot.agent.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

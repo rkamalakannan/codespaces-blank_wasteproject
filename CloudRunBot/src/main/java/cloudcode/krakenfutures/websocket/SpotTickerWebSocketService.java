@@ -256,11 +256,29 @@ public class SpotTickerWebSocketService {
             // Normalize base symbol (XBT -> BTC)
             String base = KRAKEN_TO_STANDARD.getOrDefault(krakenBase, krakenBase);
 
-            // Parse prices — use doubleValue() for speed, BigDecimal for precision where needed
+            // ---- Parse WebSocket v2 ticker fields ----
+            // Prices
             BigDecimal bid = parseBigDecimal(data, "bid");
             BigDecimal ask = parseBigDecimal(data, "ask");
             BigDecimal last = parseBigDecimal(data, "last");
             BigDecimal volume = parseBigDecimal(data, "volume");
+
+            // Top-of-book quantities (v2 specific — not in v1 ticker)
+            BigDecimal bidQty = parseBigDecimal(data, "bid_qty");
+            BigDecimal askQty = parseBigDecimal(data, "ask_qty");
+
+            // Volume-weighted average price (v2 specific)
+            BigDecimal vwap = parseBigDecimal(data, "vwap");
+
+            // 24h range and change (v2 specific)
+            BigDecimal low24h = parseBigDecimal(data, "low");
+            BigDecimal high24h = parseBigDecimal(data, "high");
+            BigDecimal change24h = parseBigDecimal(data, "change");
+            BigDecimal changePct = parseBigDecimal(data, "change_pct");
+
+            // Kraken-provided RFC 3339 timestamp (v2 specific)
+            String exchangeTimestamp = data.has("timestamp") && !data.get("timestamp").isNull()
+                    ? data.get("timestamp").asText() : null;
 
             if (last == null) return;
             if (bid == null) bid = last;
@@ -268,7 +286,12 @@ public class SpotTickerWebSocketService {
             if (volume == null) volume = BigDecimal.ZERO;
 
             long nowNanos = System.nanoTime();
-            TickerData ticker = new TickerData(base, quote, bid, ask, last, volume, nowNanos);
+            TickerData ticker = new TickerData(
+                    base, quote, bid, ask, last, volume,
+                    bidQty, askQty, vwap,
+                    low24h, high24h, change24h, changePct,
+                    exchangeTimestamp,
+                    nowNanos);
             priceCache.computeIfAbsent(base, k -> new ConcurrentHashMap<>(8)).put(quote, ticker);
 
             // Update FX rates from stablecoin pairs
@@ -344,24 +367,63 @@ public class SpotTickerWebSocketService {
     /**
      * Ticker data record. Uses nanoTime for staleness checks
      * (monotonic, no wall-clock drift issues).
+     *
+     * All price/quantity fields come directly from the Kraken Spot WebSocket v2
+     * "ticker" channel (see https://docs.kraken.com/api/docs/websocket-v2/ticker).
+     *
+     * Per-pair fields available from the v2 feed:
+     *   bid, ask, last, volume, vwap, change, change_pct, low, high
+     *   bid_qty, ask_qty (top-of-book size)
+     *   timestamp (Kraken-side RFC 3339 timestamp)
+     *
+     * NOTE: v2 ticker does NOT expose a direct "spread" field. The per-pair
+     * bid-ask spread is therefore derived from `ask - bid` via {@link #pairSpread()}
+     * (which still uses the websocket v2 values — no REST fallback required).
      */
     public static class TickerData {
+        // --- Core prices (WebSocket v2 ticker) ---
         public final String base;
         public final String quote;
         public final BigDecimal bid;
         public final BigDecimal ask;
         public final BigDecimal last;
         public final BigDecimal volume;
+
+        // --- WebSocket v2 extras ---
+        public final BigDecimal bidQty;       // size at best bid (top of book)
+        public final BigDecimal askQty;       // size at best ask (top of book)
+        public final BigDecimal vwap;         // 24h volume-weighted average price
+        public final BigDecimal low24h;       // 24h low
+        public final BigDecimal high24h;      // 24h high
+        public final BigDecimal change24h;    // 24h change (absolute)
+        public final BigDecimal changePct;    // 24h change (percentage)
+        public final String exchangeTimestamp; // Kraken-side RFC 3339 timestamp
+
         public final long receivedNanos; // System.nanoTime() when received
 
-        public TickerData(String base, String quote, BigDecimal bid, BigDecimal ask,
-                          BigDecimal last, BigDecimal volume, long receivedNanos) {
+        public TickerData(String base, String quote,
+                          BigDecimal bid, BigDecimal ask,
+                          BigDecimal last, BigDecimal volume,
+                          BigDecimal bidQty, BigDecimal askQty,
+                          BigDecimal vwap,
+                          BigDecimal low24h, BigDecimal high24h,
+                          BigDecimal change24h, BigDecimal changePct,
+                          String exchangeTimestamp,
+                          long receivedNanos) {
             this.base = base;
             this.quote = quote;
             this.bid = bid;
             this.ask = ask;
             this.last = last;
             this.volume = volume;
+            this.bidQty = bidQty;
+            this.askQty = askQty;
+            this.vwap = vwap;
+            this.low24h = low24h;
+            this.high24h = high24h;
+            this.change24h = change24h;
+            this.changePct = changePct;
+            this.exchangeTimestamp = exchangeTimestamp;
             this.receivedNanos = receivedNanos;
         }
 
@@ -370,10 +432,54 @@ public class SpotTickerWebSocketService {
             return (System.nanoTime() - receivedNanos) / 1_000_000;
         }
 
+        /**
+         * Per-pair bid-ask spread derived from WebSocket v2 bid and ask.
+         * Equivalent to (ask - bid). v2 ticker does not provide this directly;
+         * we compute it locally from the two v2 fields.
+         */
+        public BigDecimal pairSpread() {
+            return ask.subtract(bid);
+        }
+
+        /** Per-pair mid price ((bid + ask) / 2). */
+        public BigDecimal pairMidPrice() {
+            return bid.add(ask).divide(BigDecimal.valueOf(2), 8, java.math.RoundingMode.HALF_UP);
+        }
+
+        /**
+         * Per-pair bid-ask spread as % of mid price.
+         * Returns 0 if mid is non-positive.
+         */
+        public BigDecimal pairSpreadPct() {
+            BigDecimal mid = pairMidPrice();
+            if (mid.signum() <= 0) return BigDecimal.ZERO;
+            return pairSpread()
+                    .divide(mid, 8, java.math.RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+        }
+
+        /**
+         * Top-of-book USD liquidity at the BEST BID (bid * bidQty).
+         * Returns ZERO if bidQty is null. Useful as a liquidity filter
+         * before trading — avoids sweeping into a thin book.
+         */
+        public BigDecimal topOfBookUsdBid() {
+            if (bidQty == null) return BigDecimal.ZERO;
+            return bid.multiply(bidQty);
+        }
+
+        /** Top-of-book USD liquidity at the BEST ASK (ask * askQty). */
+        public BigDecimal topOfBookUsdAsk() {
+            if (askQty == null) return BigDecimal.ZERO;
+            return ask.multiply(askQty);
+        }
+
         @Override
         public String toString() {
-            return String.format("%s/%s bid=%s ask=%s last=%s vol=%s age=%dms",
-                    base, quote, bid, ask, last, volume, ageMs());
+            return String.format(
+                    "%s/%s bid=%s ask=%s last=%s vol=%s spread=%s vwap=%s chg%%=%s age=%dms",
+                    base, quote, bid, ask, last, volume, pairSpread(),
+                    vwap, changePct, ageMs());
         }
     }
 }

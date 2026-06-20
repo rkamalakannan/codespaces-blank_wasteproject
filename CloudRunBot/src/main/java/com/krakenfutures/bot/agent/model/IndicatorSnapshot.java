@@ -1,4 +1,4 @@
-package com.krakenfutures.wastebot.agent.model;
+package com.krakenfutures.bot.agent.model;
 
 public record IndicatorSnapshot(
     double ema9,

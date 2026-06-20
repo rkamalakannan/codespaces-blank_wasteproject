@@ -1,4 +1,4 @@
-package com.krakenfutures.wastebot.agent.client;
+package com.krakenfutures.bot.agent.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

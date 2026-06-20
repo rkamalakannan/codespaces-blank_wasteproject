@@ -1,4 +1,4 @@
-package com.krakenfutures.wastebot.agent.model;
+package com.krakenfutures.bot.agent.model;
 
 import java.util.List;
 

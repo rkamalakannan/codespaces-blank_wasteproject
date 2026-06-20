@@ -23,6 +23,13 @@ import org.slf4j.LoggerFactory;
  *   MAX_TICKER_AGE_MS     — max ticker staleness in ms (default 3000)
  *   TRADE_COOLDOWN_MS     — per-asset cooldown in ms (default 30000)
  *   MAX_CONCURRENT_TRADES — maximum number of active trades (default 1)
+ *   MAX_PAIR_SPREAD_PCT   — max per-pair bid-ask spread % from v2 (default 1.50)
+ *   MIN_TOP_OF_BOOK_USD   — min top-of-book USD liquidity (bid_qty*bid, default 25)
+ *   MAX_VWAP_DEVIATION_PCT — max |last-vwap|/vwap % before flagging a quote (default 5.0)
+ *   MAX_CHANGE_PCT_24H    — max |24h change_pct| allowed before skipping (default 25.0)
+ *   TAKER_FEE_PCT         — Kraken Spot taker fee % (default 0.40 — Pro $0+ tier)
+ *   MAKER_FEE_PCT         — Kraken Spot maker fee % (default 0.25 — Pro $0+ tier)
+ *   FEE_VOLUME_USD_30D    — 30-day volume tier for fee lookup (default 0 — Pro base)
  */
 public class TradingConfig {
 
@@ -49,6 +56,13 @@ public class TradingConfig {
     private final long maxTickerAgeMs;
     private final long tradeCooldownMs;
     private final int maxConcurrentTrades;
+    private final double maxPairSpreadPct;
+    private final double minTopOfBookUsd;
+    private final double maxVwapDeviationPct;
+    private final double maxChangePct24h;
+    private final double takerFeePct;
+    private final double makerFeePct;
+    private final double feeVolumeUsd30d;
 
     private TradingConfig(Builder builder) {
         this.spotApiKey = builder.spotApiKey;
@@ -63,6 +77,13 @@ public class TradingConfig {
         this.maxTickerAgeMs = builder.maxTickerAgeMs;
         this.tradeCooldownMs = builder.tradeCooldownMs;
         this.maxConcurrentTrades = builder.maxConcurrentTrades;
+        this.maxPairSpreadPct = builder.maxPairSpreadPct;
+        this.minTopOfBookUsd = builder.minTopOfBookUsd;
+        this.maxVwapDeviationPct = builder.maxVwapDeviationPct;
+        this.maxChangePct24h = builder.maxChangePct24h;
+        this.takerFeePct = builder.takerFeePct;
+        this.makerFeePct = builder.makerFeePct;
+        this.feeVolumeUsd30d = builder.feeVolumeUsd30d;
     }
 
     /**
@@ -92,6 +113,18 @@ public class TradingConfig {
         b.tradeCooldownMs = parseLong(envOrDefault("TRADE_COOLDOWN_MS", "30000"), 30000);
         b.maxConcurrentTrades = (int) parseLong(envOrDefault("MAX_CONCURRENT_TRADES", "1"), 1);
 
+        // WebSocket v2-driven filters
+        b.maxPairSpreadPct = parseDouble(envOrDefault("MAX_PAIR_SPREAD_PCT", "1.50"), 1.50);
+        b.minTopOfBookUsd = parseDouble(envOrDefault("MIN_TOP_OF_BOOK_USD", "25"), 25);
+        b.maxVwapDeviationPct = parseDouble(envOrDefault("MAX_VWAP_DEVIATION_PCT", "5.0"), 5.0);
+        b.maxChangePct24h = parseDouble(envOrDefault("MAX_CHANGE_PCT_24H", "25.0"), 25.0);
+
+        // Kraken Pro Spot fee schedule (maker-taker, volume-based)
+        // Defaults: Pro base tier ($0+ volume) — Maker 0.25%, Taker 0.40%
+        b.takerFeePct = parseDouble(envOrDefault("TAKER_FEE_PCT", "0.40"), 0.40);
+        b.makerFeePct = parseDouble(envOrDefault("MAKER_FEE_PCT", "0.25"), 0.25);
+        b.feeVolumeUsd30d = parseDouble(envOrDefault("FEE_VOLUME_USD_30D", "0"), 0);
+
         TradingConfig config = new TradingConfig(b);
         config.logConfiguration();
         return config;
@@ -111,6 +144,13 @@ public class TradingConfig {
         log.info("  Max ticker age:  {}ms", maxTickerAgeMs);
         log.info("  Trade cooldown:  {}ms", tradeCooldownMs);
         log.info("  Max conc trades: {}", maxConcurrentTrades);
+        log.info("  Max pair spread: {}% (v2 filter)", maxPairSpreadPct);
+        log.info("  Min top-of-book: ${} USD (v2 filter)", minTopOfBookUsd);
+        log.info("  Max vwap dev:    {}% (v2 filter)", maxVwapDeviationPct);
+        log.info("  Max 24h change:  {}% (v2 filter)", maxChangePct24h);
+        log.info("  Taker fee:       {}% (Kraken Pro Spot)", takerFeePct);
+        log.info("  Maker fee:       {}% (Kraken Pro Spot)", makerFeePct);
+        log.info("  30d fee volume:  ${} (fee tier)", feeVolumeUsd30d);
         if (tradingMode == TradingMode.PAPER) {
             log.info("  *** PAPER TRADING — no real orders will be placed ***");
         } else {
@@ -135,6 +175,13 @@ public class TradingConfig {
     public long getMaxTickerAgeMs() { return maxTickerAgeMs; }
     public long getTradeCooldownMs() { return tradeCooldownMs; }
     public int getMaxConcurrentTrades() { return maxConcurrentTrades; }
+    public double getMaxPairSpreadPct() { return maxPairSpreadPct; }
+    public double getMinTopOfBookUsd() { return minTopOfBookUsd; }
+    public double getMaxVwapDeviationPct() { return maxVwapDeviationPct; }
+    public double getMaxChangePct24h() { return maxChangePct24h; }
+    public double getTakerFeePct() { return takerFeePct; }
+    public double getMakerFeePct() { return makerFeePct; }
+    public double getFeeVolumeUsd30d() { return feeVolumeUsd30d; }
 
     // --- Helpers ---
 
@@ -172,6 +219,13 @@ public class TradingConfig {
         private long maxTickerAgeMs = 3000;
         private long tradeCooldownMs = 30000;
         private int maxConcurrentTrades = 1;
+        private double maxPairSpreadPct = 1.50;
+        private double minTopOfBookUsd = 25;
+        private double maxVwapDeviationPct = 5.0;
+        private double maxChangePct24h = 25.0;
+        private double takerFeePct = 0.40;
+        private double makerFeePct = 0.25;
+        private double feeVolumeUsd30d = 0;
 
         public Builder spotApiKey(String k) { this.spotApiKey = k != null ? k : ""; return this; }
         public Builder spotApiSecret(String s) { this.spotApiSecret = s != null ? s : ""; return this; }
@@ -185,7 +239,48 @@ public class TradingConfig {
         public Builder maxTickerAgeMs(long ms) { this.maxTickerAgeMs = ms; return this; }
         public Builder tradeCooldownMs(long ms) { this.tradeCooldownMs = ms; return this; }
         public Builder maxConcurrentTrades(int n) { this.maxConcurrentTrades = n; return this; }
+        public Builder maxPairSpreadPct(double p) { this.maxPairSpreadPct = p; return this; }
+        public Builder minTopOfBookUsd(double u) { this.minTopOfBookUsd = u; return this; }
+        public Builder maxVwapDeviationPct(double p) { this.maxVwapDeviationPct = p; return this; }
+        public Builder maxChangePct24h(double p) { this.maxChangePct24h = p; return this; }
+        public Builder takerFeePct(double f) { this.takerFeePct = f; return this; }
+        public Builder makerFeePct(double f) { this.makerFeePct = f; return this; }
+        public Builder feeVolumeUsd30d(double v) { this.feeVolumeUsd30d = v; return this; }
 
         public TradingConfig build() { return new TradingConfig(this); }
+    }
+
+    /**
+     * Kraken Pro Spot fee schedule lookup.
+     * Given 30-day trading volume in USD, returns the maker and taker fee % as
+     * a {@code double[]} of size 2: {@code [makerPct, takerPct]}.
+     *
+     * Source: https://www.kraken.com/features/fee-schedule (Spot Crypto Pro)
+     */
+    public static double[] feeTierForVolumeUsd30d(double volumeUsd) {
+        if (volumeUsd >= 500_000_000d) return new double[]{0.00, 0.05};
+        if (volumeUsd >= 100_000_000d) return new double[]{0.00, 0.08};
+        if (volumeUsd >=  10_000_000d) return new double[]{0.00, 0.10};
+        if (volumeUsd >=   5_000_000d) return new double[]{0.02, 0.12};
+        if (volumeUsd >=   2_500_000d) return new double[]{0.04, 0.14};
+        if (volumeUsd >=   1_000_000d) return new double[]{0.06, 0.16};
+        if (volumeUsd >=     500_000d) return new double[]{0.08, 0.18};
+        if (volumeUsd >=     250_000d) return new double[]{0.10, 0.20};
+        if (volumeUsd >=     100_000d) return new double[]{0.12, 0.22};
+        if (volumeUsd >=      50_000d) return new double[]{0.14, 0.24};
+        if (volumeUsd >=      10_000d) return new double[]{0.20, 0.35};
+        return new double[]{0.25, 0.40}; // $0+ tier (default)
+    }
+
+    /** Effective taker fee % for this config (uses feeVolumeUsd30d if explicitly set). */
+    public double effectiveTakerFeePct() {
+        if (feeVolumeUsd30d > 0) return feeTierForVolumeUsd30d(feeVolumeUsd30d)[1];
+        return takerFeePct;
+    }
+
+    /** Effective maker fee % for this config. */
+    public double effectiveMakerFeePct() {
+        if (feeVolumeUsd30d > 0) return feeTierForVolumeUsd30d(feeVolumeUsd30d)[0];
+        return makerFeePct;
     }
 }

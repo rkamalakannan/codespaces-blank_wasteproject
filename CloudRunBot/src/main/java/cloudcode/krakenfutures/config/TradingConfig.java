@@ -52,6 +52,7 @@ public class TradingConfig {
     // --- Market toggles ---
     private final boolean spotEnabled;
     private final boolean futuresEnabled;
+    private final boolean leadLagEnabled;
 
     // --- Strategy parameters ---
     private final double tradeSizeUsd;
@@ -78,6 +79,7 @@ public class TradingConfig {
         this.tradingMode = builder.tradingMode;
         this.spotEnabled = builder.spotEnabled;
         this.futuresEnabled = builder.futuresEnabled;
+        this.leadLagEnabled = builder.leadLagEnabled;
         this.tradeSizeUsd = builder.tradeSizeUsd;
         this.minProfitPct = builder.minProfitPct;
         this.maxTickerAgeMs = builder.maxTickerAgeMs;
@@ -114,6 +116,7 @@ public class TradingConfig {
         // Market toggles
         b.spotEnabled = Boolean.parseBoolean(envOrDefault("ENABLE_SPOT", "true"));
         b.futuresEnabled = Boolean.parseBoolean(envOrDefault("ENABLE_FUTURES", "false"));
+        b.leadLagEnabled = Boolean.parseBoolean(envOrDefault("ENABLE_LEADLAG", "false"));
 
         // Strategy parameters
         b.tradeSizeUsd = parseDouble(envOrDefault("TRADE_SIZE_USD", "50"), 50);
@@ -151,6 +154,7 @@ public class TradingConfig {
         log.info("  Mode:            {}", tradingMode);
         log.info("  Spot enabled:    {}", spotEnabled);
         log.info("  Futures enabled: {}", futuresEnabled);
+        log.info("  Lead-Lag enabled:{}", leadLagEnabled);
         log.info("  Spot API key:    {}", maskKey(spotApiKey));
         log.info("  Futures API key: {}", maskKey(futuresApiKey));
         log.info("  Trade size:      ${} USD", tradeSizeUsd);
@@ -187,6 +191,7 @@ public class TradingConfig {
     public boolean isLiveTrading() { return tradingMode == TradingMode.LIVE; }
     public boolean isSpotEnabled() { return spotEnabled; }
     public boolean isFuturesEnabled() { return futuresEnabled; }
+    public boolean isLeadLagEnabled() { return leadLagEnabled; }
     public double getTradeSizeUsd() { return tradeSizeUsd; }
     public double getMinProfitPct() { return minProfitPct; }
     public long getMaxTickerAgeMs() { return maxTickerAgeMs; }
@@ -234,6 +239,7 @@ public class TradingConfig {
         private TradingMode tradingMode = TradingMode.PAPER;
         private boolean spotEnabled = true;
         private boolean futuresEnabled = false;
+        private boolean leadLagEnabled = false;
         private double tradeSizeUsd = 50;
         private double minProfitPct = 0.10;
         private long maxTickerAgeMs = 3000;
@@ -257,6 +263,7 @@ public class TradingConfig {
         public Builder tradingMode(TradingMode m) { this.tradingMode = m; return this; }
         public Builder spotEnabled(boolean e) { this.spotEnabled = e; return this; }
         public Builder futuresEnabled(boolean e) { this.futuresEnabled = e; return this; }
+        public Builder leadLagEnabled(boolean e) { this.leadLagEnabled = e; return this; }
         public Builder tradeSizeUsd(double s) { this.tradeSizeUsd = s; return this; }
         public Builder minProfitPct(double p) { this.minProfitPct = p; return this; }
         public Builder maxTickerAgeMs(long ms) { this.maxTickerAgeMs = ms; return this; }

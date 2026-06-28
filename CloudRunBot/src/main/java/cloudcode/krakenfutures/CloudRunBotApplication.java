@@ -1,6 +1,8 @@
 package cloudcode.krakenfutures;
 
 import cloudcode.krakenfutures.config.TradingConfig;
+import cloudcode.krakenfutures.leadlag.LeadLagOrchestrator;
+import cloudcode.krakenfutures.leadlag.config.LeadLagConfig;
 import cloudcode.krakenfutures.rest.KrakenRestClient;
 import cloudcode.krakenfutures.strategy.CrossCurrencyArbitrageStrategy;
 import cloudcode.krakenfutures.websocket.FuturesTickerService;
@@ -61,6 +63,7 @@ public class CloudRunBotApplication {
         CrossCurrencyArbitrageStrategy spotStrategy = null;
 //        SpotFuturesArbitrageStrategy spotFuturesStrategy = null;
         FuturesTickerService futuresTickerService = null;
+        LeadLagOrchestrator leadLagOrchestrator = null;
 
         // ===== SPOT MARKET =====
         if (config.isSpotEnabled()) {
@@ -96,6 +99,29 @@ public class CloudRunBotApplication {
             }
         } else {
             log.info("Spot market disabled (ENABLE_SPOT=false)");
+        }
+
+        // ===== LEAD-LAG BOT =====
+        if (config.isLeadLagEnabled() && spotTickerService != null) {
+            log.info("--- Initializing Lead-Lag Bot ---");
+
+            List<String> discoveredAltcoins = List.of();
+            Map<String, Set<String>> fiatPairs = restClient.fetchFiatSpotPairs();
+            if (fiatPairs != null && !fiatPairs.isEmpty()) {
+                discoveredAltcoins = fiatPairs.keySet().stream()
+                        .filter(asset -> !"BTC".equals(asset) && !"XBT".equals(asset))
+                        .toList();
+            }
+            
+            LeadLagConfig leadLagConfig;
+            leadLagConfig = new LeadLagConfig(discoveredAltcoins);
+            leadLagOrchestrator = new LeadLagOrchestrator(leadLagConfig, config, spotTickerService, orderClient);
+            leadLagOrchestrator.start();
+            log.info("Lead-Lag bot running on {} dynamically discovered altcoins: {}",
+                    leadLagConfig.getApprovedAltcoins().size(),
+                    leadLagConfig.getApprovedAltcoins());
+        } else {
+            log.info("Lead-Lag bot disabled (ENABLE_LEADLAG=false or no spot ticker available)");
         }
 
         // ===== FUTURES MARKET =====
@@ -146,9 +172,11 @@ public class CloudRunBotApplication {
         final CrossCurrencyArbitrageStrategy finalSpotStrategy = spotStrategy;
 //        final SpotFuturesArbitrageStrategy finalSpotFuturesStrategy = spotFuturesStrategy;
         final FuturesTickerService finalFuturesTicker = futuresTickerService;
+        final LeadLagOrchestrator finalLeadLag = leadLagOrchestrator;
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down...");
+            if (finalLeadLag != null) finalLeadLag.shutdown();
             if (finalSpotStrategy != null) finalSpotStrategy.shutdown();
 //            if (finalSpotFuturesStrategy != null) finalSpotFuturesStrategy.shutdown();
             if (finalSpotTicker != null) finalSpotTicker.shutdown();
